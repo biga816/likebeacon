@@ -127,13 +127,13 @@ public class MessageFactory {
         if ("CHAT".equals(item.itemType())) {
             return Component.translatable("likebeacon.feed.chat.format",
                     authorDisplay,
-                    Component.text(item.bodyText()).color(NamedTextColor.GRAY));
+                    Component.text(item.bodyText()).color(NamedTextColor.WHITE));
         }
 
         return Component.translatable("likebeacon.feed.chat.format",
                 senderDisplay.append(Component.text(" → ").color(NamedTextColor.RED))
                         .append(authorDisplay),
-                Component.text(item.bodyText()).color(NamedTextColor.GRAY));
+                Component.text(item.bodyText()).color(NamedTextColor.WHITE));
     }
 
     public Component buildChatLikeSuffix(String displayCode) {
@@ -156,9 +156,9 @@ public class MessageFactory {
                     .clickEvent(ClickEvent.runCommand("/like #" + displayCode))
                     .hoverEvent(HoverEvent.showText(
                             Component.translatable("likebeacon.item.react.hover")
-                                    .append(Component.text("\n#"))
-                                    .append(Component.text(displayCode).color(NamedTextColor.WHITE))));
-            codeLabel = codeLabel.color(NamedTextColor.WHITE);
+                                    .append(Component.text("\n#").color(NamedTextColor.GRAY))
+                                    .append(Component.text(displayCode).color(NamedTextColor.GRAY))));
+            codeLabel = codeLabel.color(NamedTextColor.GRAY);
         }
 
         return Component.text("  ").append(reactButton).append(Component.text("  ")).append(codeLabel);

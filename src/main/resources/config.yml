@@ -19,6 +19,6 @@ effects:
 
 chat:
   enabled: true
-  minLength: 4
+  minLength: 5
   pendingBufferSize: 30
   maxStoredLength: 100

@@ -222,7 +222,7 @@ public class LikeService {
                 senderOnline.sendMessage(messageFactory.success(
                         "likebeacon.command.sent",
                         Component.text(targetName).color(NamedTextColor.WHITE),
-                        Component.text(reason).color(NamedTextColor.GRAY)));
+                        Component.text(reason).color(NamedTextColor.WHITE)));
             }
 
             // Item to all players except sender and target, plus console
@@ -350,7 +350,7 @@ public class LikeService {
             if (online != null) {
                 online.sendMessage(messageFactory.success("likebeacon.likeboost.success",
                         Component.text(pending.authorName()).color(NamedTextColor.WHITE),
-                        Component.text("(#" + pending.displayCode() + ")").color(NamedTextColor.WHITE)));
+                        Component.text("(#" + pending.displayCode() + ")").color(NamedTextColor.GRAY)));
                 effectService.showReactionEffect(online, Bukkit.getPlayer(pending.authorUuid()));
             }
         }));
@@ -397,7 +397,7 @@ public class LikeService {
 
         String displayCode = item.displayCode();
         Component displayCodeComponent = Component.text("(#" + displayCode + ")")
-                .color(NamedTextColor.WHITE);
+                .color(NamedTextColor.GRAY);
 
         // 2. Check for duplicate reaction (DB read, main thread)
         try {
