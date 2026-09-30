@@ -1,0 +1,42 @@
+name: Feature Request
+description: Suggest an improvement or new feature for LikeBeacon.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem-motivation
+    attributes:
+      label: Problem / motivation
+      description: What problem or need would this feature address, and why is it important?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: Describe how you would like LikeBeacon to solve the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives-considered
+    attributes:
+      label: Alternatives considered
+      description: Describe alternatives or workarounds you considered, including existing features.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add any other context, examples, or screenshots that may help explain the request.
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing Issues and feature requests and found no duplicate.
+          required: true
+    validations:
+      required: true
