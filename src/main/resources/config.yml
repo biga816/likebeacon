@@ -13,6 +13,8 @@ reason:
 
 item:
   prefix: "[LIKE]"
+  # /like log always shows display codes regardless of this setting.
+  showDisplayCode: false
 
 effects:
   enabled: true

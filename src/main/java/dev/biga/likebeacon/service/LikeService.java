@@ -350,7 +350,7 @@ public class LikeService {
             if (online != null) {
                 online.sendMessage(messageFactory.success("likebeacon.likeboost.success",
                         Component.text(pending.authorName()).color(NamedTextColor.WHITE),
-                        Component.text("(#" + pending.displayCode() + ")").color(NamedTextColor.GRAY)));
+                        messageFactory.displayCodeLabel(pending.displayCode())));
                 effectService.showReactionEffect(online, Bukkit.getPlayer(pending.authorUuid()));
             }
         }));
@@ -396,8 +396,7 @@ public class LikeService {
         }
 
         String displayCode = item.displayCode();
-        Component displayCodeComponent = Component.text("(#" + displayCode + ")")
-                .color(NamedTextColor.GRAY);
+        Component displayCodeComponent = messageFactory.displayCodeLabel(displayCode);
 
         // 2. Check for duplicate reaction (DB read, main thread)
         try {

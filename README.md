@@ -11,7 +11,7 @@ LikeBeacon provides a lightweight social system with feeds, rankings, personal s
 * ❤️ Send Likes to other players with a custom message
 * 💬 Like ordinary chat messages using a per-viewer clickable `[♡]` control
 * ⬆️ Promote a chat message to the feed only when it receives its first Like; unliked messages are not persisted
-* ❤️ React to feed items via display code (e.g. `/like #ABCD`), including clients that cannot click chat controls
+* ❤️ React to feed items using clickable controls or display codes, which are always available through `/like log` and can optionally be shown in regular messages
 * 📖 Browse the unified DIRECT/CHAT feed (in-game book UI, up to 40 entries)
 * 🏆 View player rankings: top receivers, top direct givers, and most-reacted feed items (book UI)
 * 👤 View your personal Like statistics with received, sent, and reacted counts (book UI)
@@ -58,7 +58,7 @@ All commands require the `likebeacon.use` permission (granted to all players by 
 `/like` supports tab completion for:
 
 * Subcommands: `feed`, `log`, `ranking`, `mine`
-* Recent display codes (prefixed with `#`)
+* A `#` entry point that expands to recent display codes after it is entered or selected
 * Online player names
 
 ---
@@ -92,6 +92,7 @@ The plugin generates `plugins/LikeBeacon/config.yml` automatically on first run 
 | `recent.bufferSize`          | `100`     | Size of the in-memory recent Like buffer loaded from the database on startup.                                                   |
 | `reason.maxLength`           | `48`      | Maximum character length of the Like reason text.                                                                               |
 | `item.prefix`                | `[LIKE]`  | Prefix shown at the start of direct Like announcements in chat.                                                                 |
+| `item.showDisplayCode`       | `false`   | Show display-code labels in regular chat/Like messages and reaction feedback. Clickable controls still work when disabled; `/like log` always shows codes. |
 | `effects.enabled`            | `true`    | Enable or disable particle effects (heart + firework) on Like and reaction success.                                             |
 | `chat.enabled`               | `true`    | Enable or disable chat Likes. When disabled, the plugin does not modify `AsyncChatEvent` renderers.                              |
 | `chat.minLength`             | `4`       | Minimum plain-text message length eligible for a chat Like control. Whitespace-only and shorter messages are ignored.            |
@@ -100,9 +101,24 @@ The plugin generates `plugins/LikeBeacon/config.yml` automatically on first run 
 
 **Language** is not a config option. The plugin automatically uses each player's Minecraft client locale. Supported locales: English (`en_US`) and Japanese (`ja_JP`). English is the fallback for all other locales.
 
+## Display Codes
+
+Display codes are hidden from regular messages and reaction feedback by default. To show them, enable the following option and reload or restart the plugin:
+
+```yaml
+item:
+  showDisplayCode: true
+```
+
+When enabled, a display code such as `(#ABCD)` appears next to the reaction control in eligible chat messages and Like announcements, and in reaction feedback.
+
+![Display code shown next to a Like reaction control](docs/assets/display-code.png)
+
+Clickable reaction controls continue to work when display codes are hidden. The `/like log` command always shows display codes regardless of this setting.
+
 ## Chat Likes
 
-When chat Likes are enabled, eligible public chat messages receive a clickable `[♡]` control for every viewer except the author. The control runs `/like #<code>`, so the same code can be entered manually by Bedrock/Geyser players or other clients that cannot use chat click events.
+When chat Likes are enabled, eligible public chat messages receive a clickable `[♡]` control for every viewer except the author. Clicking the control works regardless of `item.showDisplayCode`. Enable `item.showDisplayCode` if players need to see the code and enter `/like #<code>` manually.
 
 The plugin wraps the `ChatRenderer` already installed on `AsyncChatEvent`; it does not rebuild the existing format. Prefixes, nicknames, chat colors, channel decorations, and other component events supplied by preceding chat plugins are therefore preserved. The listener runs at `HIGHEST` priority and ignores cancelled chat events.
 
@@ -170,6 +186,44 @@ Recommended local development environment:
 * Paper test server
 * Prism Launcher
 * Two Minecraft accounts for multiplayer testing
+
+---
+
+# Troubleshooting
+
+### The `[♡]` control does not appear in chat
+
+Make sure `chat.enabled` is enabled. As described in [Chat Likes](#chat-likes), LikeBeacon wraps the existing `ChatRenderer` at `HIGHEST` priority, but a chat plugin such as EssentialsChat may replace it later in the event pipeline or route the message to a separate channel. Test the plugins together if you suspect a conflict, and disable the feature with `chat.enabled: false` if necessary. By design, the author does not see `[♡]` on their own message; it is shown only to other players.
+
+### Bedrock / Geyser players cannot click `[♡]`
+
+This is expected for clients that cannot handle chat click events. Set `item.showDisplayCode: true`, then reload or restart the plugin. Players can enter the displayed code as `/like #<code>` to perform the same reaction; see [Chat Likes](#chat-likes).
+
+### Short chat messages do not receive `[♡]`
+
+Messages shorter than `chat.minLength`, and messages containing only whitespace, are not eligible. See [Configuration](#configuration) for the configured threshold.
+
+### "That post has scrolled away" appears, or an old chat message cannot be liked
+
+Only the most recent `chat.pendingBufferSize` unpromoted messages are kept in memory (30 by default). When the buffer is full, the oldest message is discarded and its display code becomes reusable. Reacting with a code that no longer identifies a pending message shows this message; this is expected behavior.
+
+### Japanese or other multibyte characters are not displayed correctly
+
+LikeBeacon detects each player's client locale and supports `en_US` and `ja_JP`, with English as the fallback for other locales. Its translation resources are loaded as UTF-8. If text is garbled, check the server console and log encoding (for example, `-Dfile.encoding=UTF-8`) and the client or resource-pack font.
+
+### Where Like data is stored, or how to reset it
+
+Like data is persisted in the SQLite database at `plugins/LikeBeacon/likebeacon.db`. To reset all LikeBeacon data, stop the server and delete this file; an empty database is created the next time the plugin starts. Changing `server-id` separates data logically as a different server within the database; see [Configuration](#configuration).
+
+### Configuration changes are not applied
+
+Changes to `config.yml` take effect after restarting the server or reloading the plugin, as noted in [Installation](#installation).
+
+---
+
+# Support
+
+Bug reports and feature requests are accepted through [GitHub Issues](https://github.com/biga816/likebeacon/issues). When opening a new Issue, use the Bug Report or Feature Request form; bug reports should include the server and LikeBeacon versions, installed plugins, reproduction steps, and relevant logs. There is currently no separate channel for general questions or discussion.
 
 ---
 

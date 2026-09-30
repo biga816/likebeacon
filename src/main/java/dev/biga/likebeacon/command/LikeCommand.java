@@ -202,11 +202,17 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
             if ("mine".startsWith(partial))
                 suggestions.add("mine");
 
-            // Recent display codes with # prefix
-            recentService.getRecentDisplayCodes(5).stream()
-                    .map(code -> "#" + code)
-                    .filter(s -> s.toLowerCase().startsWith(partial))
-                    .forEach(suggestions::add);
+            // Advertise the display-code syntax without exposing unexplained codes in
+            // the initial suggestion list. Once the user enters or selects "#", show
+            // matching recent display codes.
+            if (partial.isEmpty()) {
+                suggestions.add("#");
+            } else if (partial.startsWith("#")) {
+                recentService.getRecentDisplayCodes(5).stream()
+                        .map(code -> "#" + code)
+                        .filter(s -> s.toLowerCase().startsWith(partial))
+                        .forEach(suggestions::add);
+            }
 
             // Online player names
             Bukkit.getOnlinePlayers().stream()

@@ -27,16 +27,18 @@ public class MessageFactory {
     private static final DateTimeFormatter LOG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final String prefix;
+    private final boolean showDisplayCode;
 
     /**
      * Constructs a MessageFactory.
      *
      * @param config plugin configuration; reads the prefix from
-     *               {@code item.prefix}.
-     *               Defaults to {@code "[LIKE]"} if the key is absent.
+     *               {@code item.prefix} and display-code visibility from
+     *               {@code item.showDisplayCode}.
      */
     public MessageFactory(FileConfiguration config) {
         this.prefix = config.getString("item.prefix", "[LIKE]");
+        this.showDisplayCode = config.getBoolean("item.showDisplayCode", false);
     }
 
     /**
@@ -67,7 +69,8 @@ public class MessageFactory {
         Component message = Component.text(dateLabel + " ").color(NamedTextColor.AQUA)
                 .append(buildItemBody(item, senderDisplay, targetDisplay));
 
-        return message.append(buildReactSuffix(item.displayCode(), reactionCount, alreadyReacted, clickable));
+        return message.append(buildReactSuffix(
+                item.displayCode(), reactionCount, alreadyReacted, clickable, true));
     }
 
     /**
@@ -120,7 +123,8 @@ public class MessageFactory {
             return message;
         }
 
-        return message.append(buildReactSuffix(displayCode, reactionCount, alreadyReacted, clickable));
+        return message.append(buildReactSuffix(
+                displayCode, reactionCount, alreadyReacted, clickable, showDisplayCode));
     }
 
     private Component buildItemBody(FeedItem item, Component senderDisplay, Component authorDisplay) {
@@ -137,31 +141,55 @@ public class MessageFactory {
     }
 
     public Component buildChatLikeSuffix(String displayCode) {
-        return buildReactSuffix(displayCode, -1, false, true);
+        return buildReactSuffix(displayCode, -1, false, true, showDisplayCode);
     }
 
     private Component buildReactSuffix(String displayCode, int reactionCount, boolean alreadyReacted,
-            boolean clickable) {
+            boolean clickable, boolean displayCodeVisible) {
         String heart = alreadyReacted ? "♥" : "♡";
         String count = reactionCount < 0 ? "" : String.valueOf(reactionCount);
         Component reactButton = Component.text("[" + heart + count + "]").color(NamedTextColor.GRAY);
-        Component codeLabel = Component.text("(#" + displayCode + ")").color(NamedTextColor.DARK_GRAY)
-                .decorate(TextDecoration.ITALIC);
 
         if (alreadyReacted) {
             reactButton = reactButton.color(NamedTextColor.RED);
         } else if (clickable) {
             reactButton = reactButton
                     .decorate(TextDecoration.UNDERLINED)
-                    .clickEvent(ClickEvent.runCommand("/like #" + displayCode))
-                    .hoverEvent(HoverEvent.showText(
-                            Component.translatable("likebeacon.item.react.hover")
-                                    .append(Component.text("\n#").color(NamedTextColor.GRAY))
-                                    .append(Component.text(displayCode).color(NamedTextColor.GRAY))));
-            codeLabel = codeLabel.color(NamedTextColor.GRAY);
+                    .clickEvent(ClickEvent.runCommand("/like #" + displayCode));
+            Component hoverText = Component.translatable("likebeacon.item.react.hover");
+            if (displayCodeVisible) {
+                hoverText = hoverText
+                        .append(Component.text("\n#").color(NamedTextColor.GRAY))
+                        .append(Component.text(displayCode).color(NamedTextColor.GRAY));
+            }
+            reactButton = reactButton.hoverEvent(HoverEvent.showText(hoverText));
         }
 
-        return Component.text("  ").append(reactButton).append(Component.text("  ")).append(codeLabel);
+        Component suffix = Component.text("  ").append(reactButton);
+        if (!displayCodeVisible) {
+            return suffix;
+        }
+
+        NamedTextColor codeColor = clickable && !alreadyReacted
+                ? NamedTextColor.GRAY
+                : NamedTextColor.DARK_GRAY;
+        Component codeLabel = Component.text("(#" + displayCode + ")").color(codeColor)
+                .decorate(TextDecoration.ITALIC);
+        return suffix.append(Component.text("  ")).append(codeLabel);
+    }
+
+    /**
+     * Builds a display-code label for non-log feedback messages. The label is
+     * empty when {@code item.showDisplayCode} is disabled.
+     *
+     * @param displayCode the display code without its {@code #} prefix
+     * @return a styled label, or an empty component when hidden by configuration
+     */
+    public Component displayCodeLabel(String displayCode) {
+        if (!showDisplayCode) {
+            return Component.empty();
+        }
+        return Component.text("(#" + displayCode + ")").color(NamedTextColor.GRAY);
     }
 
     /**
