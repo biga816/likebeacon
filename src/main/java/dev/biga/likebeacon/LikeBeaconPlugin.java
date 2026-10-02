@@ -13,6 +13,7 @@ import dev.biga.likebeacon.database.PlayerStatsRepository;
 import dev.biga.likebeacon.service.CooldownService;
 import dev.biga.likebeacon.service.ChatLikeEligibilityService;
 import dev.biga.likebeacon.service.LikeEffectService;
+import dev.biga.likebeacon.service.LikeNotificationAggregationService;
 import dev.biga.likebeacon.service.LikeService;
 import dev.biga.likebeacon.service.RecentService;
 import dev.biga.likebeacon.service.PendingChatService;
@@ -35,6 +36,7 @@ public class LikeBeaconPlugin extends JavaPlugin {
     private DatabaseManager databaseManager;
     private DatabaseWriteExecutor writeExecutor;
     private I18nService i18nService;
+    private LikeNotificationAggregationService notificationAggregationService;
 
     @Override
     public void onEnable() {
@@ -89,6 +91,9 @@ public class LikeBeaconPlugin extends JavaPlugin {
         DisplayCodeGenerator displayCodeGen = new DisplayCodeGenerator(itemRepo);
         MessageFactory messageFactory = new MessageFactory(getConfig());
         LikeEffectService effectService = new LikeEffectService(getConfig());
+        notificationAggregationService = new LikeNotificationAggregationService(
+                this, getConfig(), messageFactory, effectService);
+        notificationAggregationService.start();
         PendingChatService pendingChatService = new PendingChatService(
                 getConfig().getInt("chat.pendingBufferSize", 30));
 
@@ -97,7 +102,7 @@ public class LikeBeaconPlugin extends JavaPlugin {
                 playerStatsRepo, itemStatsRepo,
                 databaseManager, writeExecutor,
                 displayCodeGen, cooldownService, recentService, pendingChatService, messageFactory,
-                effectService, getConfig(), this, serverId);
+                effectService, notificationAggregationService, getConfig(), this, serverId);
 
         // 7. Book UI service
         LikeBookService bookService = new LikeBookService(
@@ -122,6 +127,9 @@ public class LikeBeaconPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (notificationAggregationService != null) {
+            notificationAggregationService.shutdown();
+        }
         if (writeExecutor != null) {
             writeExecutor.shutdown();
         }

@@ -55,6 +55,7 @@ public class LikeService {
     private final PendingChatService pendingChatService;
     private final MessageFactory messageFactory;
     private final LikeEffectService effectService;
+    private final LikeNotificationAggregationService notificationAggregationService;
     private final FileConfiguration config;
     private final Plugin plugin;
     private final String serverId;
@@ -76,6 +77,7 @@ public class LikeService {
             PendingChatService pendingChatService,
             MessageFactory messageFactory,
             LikeEffectService effectService,
+            LikeNotificationAggregationService notificationAggregationService,
             FileConfiguration config,
             Plugin plugin,
             String serverId) {
@@ -92,6 +94,7 @@ public class LikeService {
         this.pendingChatService = pendingChatService;
         this.messageFactory = messageFactory;
         this.effectService = effectService;
+        this.notificationAggregationService = notificationAggregationService;
         this.config = config;
         this.plugin = plugin;
         this.serverId = serverId;
@@ -245,11 +248,7 @@ public class LikeService {
                         "likebeacon.direct.received",
                         senderDisplay,
                         Component.text(reason).color(NamedTextColor.WHITE)));
-            }
-
-            // Particle effects (success only; exceptions must not fail the like)
-            if (senderOnline != null && targetOnline != null) {
-                effectService.showDirectLikeEffect(senderOnline, targetOnline);
+                effectService.showReceivedLikeEffect(targetOnline);
             }
         }));
     }
@@ -347,7 +346,8 @@ public class LikeService {
             recentService.add(item);
             Bukkit.getOnlinePlayers().forEach(p -> recentService.updateLastSeen(p.getUniqueId(), itemId));
             pendingChatService.completePromotion(pending.displayCode(), item);
-            notifyReactionSuccess(reactorUuid, reactorName, item, pending.authorName(), null, 1);
+            notifyReactionSuccess(
+                    reactorUuid, reactorName, item, pending.authorName(), null, 1, false);
         }));
     }
 
@@ -454,7 +454,7 @@ public class LikeService {
             }
 
             notifyReactionSuccess(
-                    senderUuid, senderName, item, targetName, initiatorName, reactionCount);
+                    senderUuid, senderName, item, targetName, initiatorName, reactionCount, true);
         }));
     }
 
@@ -462,14 +462,11 @@ public class LikeService {
      * Sends contextual success notifications after a reaction has been committed.
      */
     private void notifyReactionSuccess(UUID reactorUuid, String reactorName, FeedItem item,
-            String targetName, String initiatorName, long reactionCount) {
+            String targetName, String initiatorName, long reactionCount, boolean aggregateRecipient) {
         Player reactorOnline = Bukkit.getPlayer(reactorUuid);
-        Player targetOnline = Bukkit.getPlayer(item.authorUuid());
 
-        Component reactorDisplay = Component.text(reactorName).color(NamedTextColor.WHITE);
         Component targetDisplay = Component.text(targetName).color(NamedTextColor.WHITE);
         Component bodyDisplay = Component.text(item.bodyText()).color(NamedTextColor.WHITE);
-        Component countDisplay = Component.text(Long.toString(reactionCount)).color(NamedTextColor.WHITE);
 
         if ("CHAT".equals(item.itemType())) {
             if (reactorOnline != null) {
@@ -479,16 +476,7 @@ public class LikeService {
                         bodyDisplay,
                         messageFactory.displayCodeLabel(item.displayCode())));
             }
-            if (targetOnline != null) {
-                targetOnline.sendMessage(messageFactory.notification(
-                        "likebeacon.reaction.chat.received",
-                        reactorDisplay,
-                        bodyDisplay,
-                        countDisplay));
-            }
         } else {
-            Component initiatorDisplay = Component.text(initiatorName != null ? initiatorName : targetName)
-                    .color(NamedTextColor.WHITE);
             if (reactorOnline != null) {
                 reactorOnline.sendMessage(messageFactory.success(
                         "likebeacon.reaction.direct.sent",
@@ -496,19 +484,15 @@ public class LikeService {
                         bodyDisplay,
                         messageFactory.displayCodeLabel(item.displayCode())));
             }
-            if (targetOnline != null) {
-                targetOnline.sendMessage(messageFactory.notification(
-                        "likebeacon.reaction.direct.received",
-                        reactorDisplay,
-                        initiatorDisplay,
-                        bodyDisplay,
-                        countDisplay));
-            }
         }
 
         recentService.updateLastSeen(reactorUuid, item.itemId());
-        if (reactorOnline != null) {
-            effectService.showReactionEffect(reactorOnline, targetOnline);
+        if (aggregateRecipient) {
+            notificationAggregationService.enqueue(
+                    reactorName, item, initiatorName, reactionCount);
+        } else {
+            notificationAggregationService.notifyImmediately(
+                    reactorName, item, initiatorName, reactionCount);
         }
     }
 

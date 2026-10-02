@@ -19,6 +19,14 @@ item:
 effects:
   enabled: true
 
+notifications:
+  reactionAggregation:
+    enabled: true
+    # Send after this many seconds without another Like on the same item.
+    quietSeconds: 3
+    # Always send by this many seconds after the first Like in the batch.
+    maxWaitSeconds: 10
+
 chat:
   enabled: true
   minLength: 5

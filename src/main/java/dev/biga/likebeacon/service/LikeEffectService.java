@@ -9,7 +9,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Displays particle effects on like/reaction success.
+ * Displays particle effects when a player receives a Like notification.
  * All methods must be called on the server main thread.
  */
 public class LikeEffectService {
@@ -25,26 +25,12 @@ public class LikeEffectService {
         this.config = config;
     }
 
-    /** Called after a direct like succeeds. */
-    public void showDirectLikeEffect(Player sender, Player target) {
+    /** Shows the shared recipient effect once per delivered notification. */
+    public void showReceivedLikeEffect(Player target) {
         if (!isEnabled())
             return;
-        showEffect(sender, Particle.HEART, 1);
-        showEffect(target, Particle.HEART, 1);
+        showEffect(target, Particle.HEART, 3);
         showEffect(target, Particle.FIREWORK, 10);
-    }
-
-    /** Called after a reaction like succeeds. target may be null if offline. */
-    public void showReactionEffect(Player reactor, Player target) {
-        if (!isEnabled())
-            return;
-
-        showEffect(reactor, Particle.HEART, 1);
-
-        if (target != null) {
-            showEffect(target, Particle.HEART, 3);
-            showEffect(target, Particle.FIREWORK, 10);
-        }
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────────
