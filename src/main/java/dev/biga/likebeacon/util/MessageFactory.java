@@ -74,23 +74,6 @@ public class MessageFactory {
     }
 
     /**
-     * Builds the simplest item message: no reaction count, no react button.
-     * <p>
-     * Use
-     * {@link #buildItemMessage(FeedItem, Component, Component, int, boolean, boolean, boolean)}
-     * for full control over reaction count and button behavior.
-     * </p>
-     *
-     * @param item          the item data
-     * @param senderDisplay pre-built component for the sender name slot
-     * @param targetDisplay pre-built component for the target name slot
-     * @return the assembled {@link Component}
-     */
-    public Component buildItemMessage(FeedItem item, Component senderDisplay, Component targetDisplay) {
-        return buildItemMessage(item, senderDisplay, targetDisplay, -1, false, false, false);
-    }
-
-    /**
      * Builds a server-wide item message with full control over sender/target
      * display components, react button visibility, and click interactivity.
      * <p>
