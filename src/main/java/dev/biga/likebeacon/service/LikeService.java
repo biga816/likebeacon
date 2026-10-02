@@ -220,7 +220,7 @@ public class LikeService {
             Player senderOnline = Bukkit.getPlayer(senderUuid);
             if (senderOnline != null) {
                 senderOnline.sendMessage(messageFactory.success(
-                        "likebeacon.command.sent",
+                        "likebeacon.direct.sent",
                         Component.text(targetName).color(NamedTextColor.WHITE),
                         Component.text(reason).color(NamedTextColor.WHITE)));
             }
@@ -238,13 +238,13 @@ public class LikeService {
             others.sendMessage(messageFactory.buildItemMessage(
                     item, senderDisplay, targetDisplay, -1, false, true, true));
 
-            // Send special message to target with "you" label and no react button
+            // Send a dedicated received-Like notification to the target
             Player targetOnline = Bukkit.getPlayer(authorUuid);
             if (targetOnline != null) {
-                Component youDisplay = Component.translatable("likebeacon.item.you")
-                        .color(NamedTextColor.GREEN);
-                targetOnline.sendMessage(messageFactory.buildItemMessage(
-                        item, senderDisplay, youDisplay));
+                targetOnline.sendMessage(messageFactory.notification(
+                        "likebeacon.direct.received",
+                        senderDisplay,
+                        Component.text(reason).color(NamedTextColor.WHITE)));
             }
 
             // Particle effects (success only; exceptions must not fail the like)
