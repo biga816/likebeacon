@@ -26,7 +26,8 @@ public class DatabaseManager {
     /**
      * Constructs a DatabaseManager.
      *
-     * @param dataFolder the plugin's data folder; likebeacon.db will be created inside
+     * @param dataFolder the plugin's data folder; likebeacon.db will be created
+     *                   inside
      *                   it
      * @throws ClassNotFoundException if the SQLite JDBC driver is not found
      */
@@ -200,10 +201,26 @@ public class DatabaseManager {
      * @throws SQLException if a database error occurs or the task throws
      */
     public void executeInTransaction(TransactionTask task) throws SQLException {
+        executeInTransaction(conn -> {
+            task.execute(conn);
+            return null;
+        });
+    }
+
+    /**
+     * Executes a transactional write task and returns the value produced by it.
+     *
+     * @param task the transactional task to execute
+     * @param <T>  the result type
+     * @return the value produced after all writes in the task have succeeded
+     * @throws SQLException if a database error occurs or the task throws
+     */
+    public <T> T executeInTransaction(TransactionFunction<T> task) throws SQLException {
         connection.setAutoCommit(false);
         try {
-            task.execute(connection);
+            T result = task.execute(connection);
             connection.commit();
+            return result;
         } catch (SQLException e) {
             connection.rollback();
             throw e;
@@ -231,5 +248,11 @@ public class DatabaseManager {
     @FunctionalInterface
     public interface TransactionTask {
         void execute(Connection conn) throws SQLException;
+    }
+
+    /** Transactional SQL task that produces a result. */
+    @FunctionalInterface
+    public interface TransactionFunction<T> {
+        T execute(Connection conn) throws SQLException;
     }
 }

@@ -347,12 +347,7 @@ public class LikeService {
             recentService.add(item);
             Bukkit.getOnlinePlayers().forEach(p -> recentService.updateLastSeen(p.getUniqueId(), itemId));
             pendingChatService.completePromotion(pending.displayCode(), item);
-            if (online != null) {
-                online.sendMessage(messageFactory.success("likebeacon.likeboost.success",
-                        Component.text(pending.authorName()).color(NamedTextColor.WHITE),
-                        messageFactory.displayCodeLabel(pending.displayCode())));
-                effectService.showReactionEffect(online, Bukkit.getPlayer(pending.authorUuid()));
-            }
+            notifyReactionSuccess(reactorUuid, reactorName, item, pending.authorName(), null, 1);
         }));
     }
 
@@ -416,6 +411,9 @@ public class LikeService {
         String senderName = sender.getName();
         // Resolve target name on main thread (may call Bukkit API)
         String targetName = resolvePlayerName(item.authorUuid());
+        String initiatorName = item.initiatorUuid() == null
+                ? null
+                : resolvePlayerName(item.initiatorUuid());
 
         String reactionId = UUID.randomUUID().toString();
         long now = System.currentTimeMillis();
@@ -423,16 +421,15 @@ public class LikeService {
                 reactionId, serverId, now, item.itemId(), senderUuid, item.authorUuid(), "LIKE");
 
         // 4. Submit atomic write transaction
-        writeExecutor.submit(() -> {
-            databaseManager.executeInTransaction(conn -> {
-                reactionRepository.save(reaction);
-                itemStatsRepository.incrementReactionCount(conn, serverId, item.itemId(), now);
-                playerStatsRepository.upsertReactedCount(conn, serverId, senderUuid, senderName, now);
-                playerStatsRepository.upsertReceivedCount(
-                        conn, serverId, item.authorUuid(), targetName, now);
-            });
-            return null;
-        }).whenComplete((ignored, ex) ->
+        writeExecutor.submit(() -> databaseManager.executeInTransaction(conn -> {
+            reactionRepository.save(reaction);
+            long reactionCount = itemStatsRepository.incrementReactionCount(
+                    conn, serverId, item.itemId(), now);
+            playerStatsRepository.upsertReactedCount(conn, serverId, senderUuid, senderName, now);
+            playerStatsRepository.upsertReceivedCount(
+                    conn, serverId, item.authorUuid(), targetName, now);
+            return reactionCount;
+        })).whenComplete((reactionCount, ex) ->
         // 5. Callback on the main thread
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             Player senderOnline = Bukkit.getPlayer(senderUuid);
@@ -456,22 +453,63 @@ public class LikeService {
                 return;
             }
 
-            // Send success message
-            Component targetNameComponent = Component.text(targetName).color(NamedTextColor.WHITE);
-            if (senderOnline != null) {
-                senderOnline.sendMessage(messageFactory.success(
-                        "likebeacon.likeboost.success", targetNameComponent, displayCodeComponent));
-            }
-
-            // Update lastSeen
-            recentService.updateLastSeen(senderUuid, item.itemId());
-
-            // Particle effects (success only; exceptions must not fail the reaction)
-            Player targetOnline = Bukkit.getPlayer(item.authorUuid());
-            if (senderOnline != null) {
-                effectService.showReactionEffect(senderOnline, targetOnline);
-            }
+            notifyReactionSuccess(
+                    senderUuid, senderName, item, targetName, initiatorName, reactionCount);
         }));
+    }
+
+    /**
+     * Sends contextual success notifications after a reaction has been committed.
+     */
+    private void notifyReactionSuccess(UUID reactorUuid, String reactorName, FeedItem item,
+            String targetName, String initiatorName, long reactionCount) {
+        Player reactorOnline = Bukkit.getPlayer(reactorUuid);
+        Player targetOnline = Bukkit.getPlayer(item.authorUuid());
+
+        Component reactorDisplay = Component.text(reactorName).color(NamedTextColor.WHITE);
+        Component targetDisplay = Component.text(targetName).color(NamedTextColor.WHITE);
+        Component bodyDisplay = Component.text(item.bodyText()).color(NamedTextColor.WHITE);
+        Component countDisplay = Component.text(Long.toString(reactionCount)).color(NamedTextColor.WHITE);
+
+        if ("CHAT".equals(item.itemType())) {
+            if (reactorOnline != null) {
+                reactorOnline.sendMessage(messageFactory.success(
+                        "likebeacon.reaction.chat.sent",
+                        targetDisplay,
+                        bodyDisplay,
+                        messageFactory.displayCodeLabel(item.displayCode())));
+            }
+            if (targetOnline != null) {
+                targetOnline.sendMessage(messageFactory.notification(
+                        "likebeacon.reaction.chat.received",
+                        reactorDisplay,
+                        bodyDisplay,
+                        countDisplay));
+            }
+        } else {
+            Component initiatorDisplay = Component.text(initiatorName != null ? initiatorName : targetName)
+                    .color(NamedTextColor.WHITE);
+            if (reactorOnline != null) {
+                reactorOnline.sendMessage(messageFactory.success(
+                        "likebeacon.reaction.direct.sent",
+                        targetDisplay,
+                        bodyDisplay,
+                        messageFactory.displayCodeLabel(item.displayCode())));
+            }
+            if (targetOnline != null) {
+                targetOnline.sendMessage(messageFactory.notification(
+                        "likebeacon.reaction.direct.received",
+                        reactorDisplay,
+                        initiatorDisplay,
+                        bodyDisplay,
+                        countDisplay));
+            }
+        }
+
+        recentService.updateLastSeen(reactorUuid, item.itemId());
+        if (reactorOnline != null) {
+            effectService.showReactionEffect(reactorOnline, targetOnline);
+        }
     }
 
     /**

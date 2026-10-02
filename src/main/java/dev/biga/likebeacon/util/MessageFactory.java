@@ -243,6 +243,19 @@ public class MessageFactory {
     }
 
     /**
+     * Builds a received-Like notification using the configured item prefix.
+     *
+     * @param key  the translation key
+     * @param args optional translation arguments
+     * @return an aqua-prefixed notification with a green message body
+     */
+    public Component notification(String key, ComponentLike... args) {
+        return Component.text(prefix).color(NamedTextColor.AQUA)
+                .append(Component.text(" "))
+                .append(Component.translatable(key, args).color(NamedTextColor.GREEN));
+    }
+
+    /**
      * Returns a {@link PlayerTranslator} bound to the given player's locale.
      * Use this for contexts where Adventure cannot resolve translatable components
      * automatically (e.g. book NBT pages).
