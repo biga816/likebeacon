@@ -64,16 +64,18 @@ public class ItemStatsRepository {
 
     /**
      * Increments {@code reaction_count} for an existing item, or inserts a
-     * new row with count 1 if none exists (upsert).
+     * new row with count 1 if none exists (upsert), and returns the resulting
+     * count from the same statement.
      * Called when a player reacts to an existing item.
      *
      * @param conn      the connection in the active transaction
      * @param serverId  the server ID for scoping the record
      * @param itemId    the item ID to update
      * @param updatedAt current timestamp in epoch milliseconds
+     * @return the reaction count after this increment
      * @throws SQLException if a database error occurs
      */
-    public void incrementReactionCount(Connection conn, String serverId, String itemId, long updatedAt)
+    public long incrementReactionCount(Connection conn, String serverId, String itemId, long updatedAt)
             throws SQLException {
         String sql = """
                 INSERT INTO item_stats (item_id, server_id, reaction_count, updated_at)
@@ -81,12 +83,18 @@ public class ItemStatsRepository {
                 ON CONFLICT(item_id) DO UPDATE SET
                     reaction_count = reaction_count + 1,
                     updated_at     = excluded.updated_at
+                RETURNING reaction_count
                 """;
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, itemId);
             ps.setString(2, serverId);
             ps.setLong(3, updatedAt);
-            ps.executeUpdate();
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("Incrementing item stats returned no reaction count for " + itemId);
+                }
+                return rs.getLong("reaction_count");
+            }
         }
     }
 
