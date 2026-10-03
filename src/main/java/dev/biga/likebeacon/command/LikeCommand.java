@@ -3,6 +3,7 @@ package dev.biga.likebeacon.command;
 import dev.biga.likebeacon.book.LikeBookService;
 import dev.biga.likebeacon.database.ItemStatsRepository;
 import dev.biga.likebeacon.database.ReactionRepository;
+import dev.biga.likebeacon.database.DatabaseReadExecutor;
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.service.LikeService;
 import dev.biga.likebeacon.service.RecentService;
@@ -15,12 +16,10 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,19 +54,24 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
     private final RecentService recentService;
     private final ItemStatsRepository itemStatsRepository;
     private final ReactionRepository reactionRepository;
+    private final DatabaseReadExecutor readExecutor;
     private final MessageFactory messageFactory;
     private final LikeBookService bookService;
+    private final Plugin plugin;
 
     public LikeCommand(LikeService likeService, RecentService recentService,
             ItemStatsRepository itemStatsRepository,
-            ReactionRepository reactionRepository, MessageFactory messageFactory,
-            LikeBookService bookService) {
+            ReactionRepository reactionRepository, DatabaseReadExecutor readExecutor,
+            MessageFactory messageFactory,
+            LikeBookService bookService, Plugin plugin) {
         this.likeService = likeService;
         this.recentService = recentService;
         this.itemStatsRepository = itemStatsRepository;
         this.reactionRepository = reactionRepository;
+        this.readExecutor = readExecutor;
         this.messageFactory = messageFactory;
         this.bookService = bookService;
+        this.plugin = plugin;
     }
 
     @Override
@@ -145,17 +149,25 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
         }
 
         List<String> itemIds = recent.stream().map(FeedItem::itemId).toList();
-        Map<String, Long> countMap = new HashMap<>();
-        Set<String> reactedIds = new HashSet<>();
-        try {
-            // Read reaction_count from the aggregation table to avoid per-call COUNT on
-            // reactions
-            countMap = itemStatsRepository.reactionCountByItemIds(itemIds);
-            reactedIds = reactionRepository.reactedItemIds(itemIds, player.getUniqueId());
-        } catch (SQLException e) {
-            log.log(Level.WARNING, "Failed to get reaction data for recent items", e);
-        }
+        java.util.UUID playerUuid = player.getUniqueId();
+        readExecutor.submit(conn -> new LogData(
+                itemStatsRepository.reactionCountByItemIds(itemIds),
+                reactionRepository.reactedItemIds(itemIds, playerUuid)))
+                .whenComplete((data, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
+            Player online = Bukkit.getPlayer(playerUuid);
+            if (online == null)
+                return;
+            if (failure != null) {
+                log.log(Level.WARNING, "Failed to get reaction data for recent items", failure);
+                online.sendMessage(messageFactory.error("likebeacon.error.internal"));
+                return;
+            }
+            renderLog(online, recent, data.counts(), data.reactedIds());
+        }));
+    }
 
+    private void renderLog(Player player, List<FeedItem> recent, Map<String, Long> countMap,
+            Set<String> reactedIds) {
         player.sendMessage(messageFactory.info("likebeacon.command.log.title"));
         for (FeedItem item : recent) {
             boolean isOwnSend = player.getUniqueId().equals(item.initiatorUuid());
@@ -175,6 +187,9 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
         }
 
         recentService.updateLastSeen(player.getUniqueId(), recent.get(0).itemId());
+    }
+
+    private record LogData(Map<String, Long> counts, Set<String> reactedIds) {
     }
 
     private String resolveName(java.util.UUID uuid) {

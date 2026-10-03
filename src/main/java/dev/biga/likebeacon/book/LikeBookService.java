@@ -1,6 +1,7 @@
 package dev.biga.likebeacon.book;
 
 import dev.biga.likebeacon.database.FeedItemRepository;
+import dev.biga.likebeacon.database.DatabaseReadExecutor;
 import dev.biga.likebeacon.database.ItemStatsRepository;
 import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.database.PlayerStatsRepository;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.UUID;
 
 /**
  * Orchestrates async DB reads and book-UI opening for
@@ -68,6 +70,7 @@ public class LikeBookService {
     private final MessageFactory messageFactory;
     private final JavaPlugin plugin;
     private final String serverId;
+    private final DatabaseReadExecutor readExecutor;
     private final LikeRankingBookRenderer rankingRenderer;
     private final LikeMineBookRenderer mineRenderer;
     private final LikeFeedBookRenderer feedRenderer;
@@ -88,6 +91,7 @@ public class LikeBookService {
             ItemStatsRepository itemStatsRepo,
             FeedItemRepository itemRepo,
             ReactionRepository reactionRepo,
+            DatabaseReadExecutor readExecutor,
             MessageFactory messageFactory,
             JavaPlugin plugin,
             String serverId) {
@@ -95,6 +99,7 @@ public class LikeBookService {
         this.itemStatsRepo = itemStatsRepo;
         this.itemRepo = itemRepo;
         this.reactionRepo = reactionRepo;
+        this.readExecutor = readExecutor;
         this.messageFactory = messageFactory;
         this.plugin = plugin;
         this.serverId = serverId;
@@ -111,7 +116,9 @@ public class LikeBookService {
      */
     public void openRankingBook(Player player) {
         PlayerTranslator tr = messageFactory.translatorFor(player);
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        UUID playerUuid = player.getUniqueId();
+        String playerName = player.getName();
+        readExecutor.submit(conn -> {
             try {
                 List<PlayerStats> received = playerStatsRepo.getTopReceivedPlayers(serverId, RANKING_LIMIT);
                 List<PlayerStats> sent = playerStatsRepo.getTopSentPlayers(serverId, RANKING_LIMIT);
@@ -119,19 +126,20 @@ public class LikeBookService {
                 List<String> popularIds = popular.stream()
                         .map(ItemRankingEntry::itemId)
                         .toList();
-                Set<String> reacted = reactionRepo.reactedItemIds(popularIds, player.getUniqueId());
+                Set<String> reacted = reactionRepo.reactedItemIds(popularIds, playerUuid);
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
                     List<Component> pages = rankingRenderer.buildPages(
-                            received, sent, popular, player.getUniqueId(), reacted, tr);
+                            received, sent, popular, playerUuid, reacted, tr);
                     openBook(player, tr.translate("likebeacon.book.ranking.title"), pages);
                 });
             } catch (SQLException e) {
-                log.log(Level.WARNING, "Failed to fetch ranking data for " + player.getName(), e);
+                log.log(Level.WARNING, "Failed to fetch ranking data for " + playerName, e);
                 plugin.getServer().getScheduler().runTask(plugin,
                         () -> player.sendMessage(Component.text(tr.translate("likebeacon.error.internal"))
                                 .color(NamedTextColor.RED)));
             }
+            return null;
         });
     }
 
@@ -143,15 +151,17 @@ public class LikeBookService {
      */
     public void openMineBook(Player player) {
         PlayerTranslator tr = messageFactory.translatorFor(player);
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        UUID playerUuid = player.getUniqueId();
+        String playerName = player.getName();
+        readExecutor.submit(conn -> {
             try {
-                Optional<PlayerStats> statsOpt = playerStatsRepo.getPlayerStats(serverId, player.getUniqueId());
+                Optional<PlayerStats> statsOpt = playerStatsRepo.getPlayerStats(serverId, playerUuid);
                 List<ItemRankingEntry> mostLiked = itemStatsRepo
-                        .getTopLikedItemsReceivedBy(serverId, player.getUniqueId(), MOST_LIKED_LIMIT);
+                        .getTopLikedItemsReceivedBy(serverId, playerUuid, MOST_LIKED_LIMIT);
                 List<FeedItem> received = itemRepo.getRecentItemsReceivedBy(
-                        serverId, player.getUniqueId(), MINE_LIMIT);
+                        serverId, playerUuid, MINE_LIMIT);
                 List<FeedItem> sent = itemRepo.getRecentItemsInitiatedBy(
-                        serverId, player.getUniqueId(), MINE_LIMIT);
+                        serverId, playerUuid, MINE_LIMIT);
 
                 List<String> allIds = new ArrayList<>();
                 received.stream().map(FeedItem::itemId).forEach(allIds::add);
@@ -164,15 +174,16 @@ public class LikeBookService {
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
                     List<Component> pages = mineRenderer.buildPages(stats, mostLiked, received, sent, reactionCounts,
-                            player.getUniqueId(), tr);
+                            playerUuid, tr);
                     openBook(player, tr.translate("likebeacon.book.mine.title"), pages);
                 });
             } catch (SQLException e) {
-                log.log(Level.WARNING, "Failed to fetch mine data for " + player.getName(), e);
+                log.log(Level.WARNING, "Failed to fetch mine data for " + playerName, e);
                 plugin.getServer().getScheduler().runTask(plugin,
                         () -> player.sendMessage(Component.text(tr.translate("likebeacon.error.internal"))
                                 .color(NamedTextColor.RED)));
             }
+            return null;
         });
     }
 
@@ -184,7 +195,9 @@ public class LikeBookService {
      */
     public void openFeedBook(Player player) {
         PlayerTranslator tr = messageFactory.translatorFor(player);
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        UUID playerUuid = player.getUniqueId();
+        String playerName = player.getName();
+        readExecutor.submit(conn -> {
             try {
                 List<FeedItem> items = itemRepo.findRecent(serverId, FEED_MAX_ITEMS);
                 List<String> ids = items.stream()
@@ -195,20 +208,21 @@ public class LikeBookService {
                         : itemStatsRepo.reactionCountByItemIds(ids);
                 Set<String> reacted = ids.isEmpty()
                         ? Set.of()
-                        : reactionRepo.reactedItemIds(ids, player.getUniqueId());
+                        : reactionRepo.reactedItemIds(ids, playerUuid);
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
                     List<Component> pages = feedRenderer.buildPages(
                             items, reactionCounts, reacted,
-                            player.getUniqueId(), FEED_ITEMS_PER_PAGE, tr);
+                            playerUuid, FEED_ITEMS_PER_PAGE, tr);
                     openBook(player, tr.translate("likebeacon.command.feed.title"), pages);
                 });
             } catch (SQLException e) {
-                log.log(Level.WARNING, "Failed to fetch feed data for " + player.getName(), e);
+                log.log(Level.WARNING, "Failed to fetch feed data for " + playerName, e);
                 plugin.getServer().getScheduler().runTask(plugin,
                         () -> player.sendMessage(Component.text(tr.translate("likebeacon.error.internal"))
                                 .color(NamedTextColor.RED)));
             }
+            return null;
         });
     }
 

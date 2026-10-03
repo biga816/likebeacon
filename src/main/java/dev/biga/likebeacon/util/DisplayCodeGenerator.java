@@ -3,6 +3,7 @@ package dev.biga.likebeacon.util;
 import dev.biga.likebeacon.database.FeedItemRepository;
 
 import java.security.SecureRandom;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -60,15 +61,16 @@ public class DisplayCodeGenerator {
      * @throws SQLException if the maximum retry count is exceeded or a DB operation
      *                      fails
      */
-    public String generateUnique(String serverId) throws SQLException {
-        return generateUnique(serverId, Set.of());
+    public String generateUnique(Connection connection, String serverId) throws SQLException {
+        return generateUnique(connection, serverId, Set.of());
     }
 
-    public String generateUnique(String serverId, Set<String> additionalReservedCodes) throws SQLException {
+    public String generateUnique(Connection connection, String serverId, Set<String> additionalReservedCodes)
+            throws SQLException {
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             String code = generate();
             if (!additionalReservedCodes.contains(code)
-                    && !itemRepository.existsInRecentByDisplayCode(serverId, code, RECENT_WINDOW)) {
+                    && !itemRepository.existsInRecentByDisplayCode(connection, serverId, code, RECENT_WINDOW)) {
                 return code;
             }
             log.fine("displayCode collision on attempt " + attempt + ", retrying...");

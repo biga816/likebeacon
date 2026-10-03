@@ -21,7 +21,8 @@ public class DatabaseManager {
     private static final Logger LOGGER = Logger.getLogger(DatabaseManager.class.getName());
 
     private final String jdbcUrl;
-    private Connection connection;
+    private Connection writeConnection;
+    private Connection readConnection;
 
     /**
      * Constructs a DatabaseManager.
@@ -43,10 +44,10 @@ public class DatabaseManager {
      * @throws SQLException if a database operation fails
      */
     public void initialize() throws SQLException {
-        connection = DriverManager.getConnection(jdbcUrl);
+        writeConnection = DriverManager.getConnection(jdbcUrl);
         LOGGER.info("SQLite database connected: " + jdbcUrl);
 
-        try (Statement stmt = connection.createStatement()) {
+        try (Statement stmt = writeConnection.createStatement()) {
 
             // ── PRAGMAs ────────────────────────────────────────────────────────
             // WAL mode: allows concurrent reads while a single writer is active.
@@ -172,6 +173,13 @@ public class DatabaseManager {
                     """);
         }
 
+        readConnection = DriverManager.getConnection(jdbcUrl);
+        try (Statement stmt = readConnection.createStatement()) {
+            stmt.execute("PRAGMA busy_timeout=5000");
+            stmt.execute("PRAGMA foreign_keys=ON");
+            stmt.execute("PRAGMA query_only=ON");
+        }
+
         LOGGER.info("Database schema initialized successfully.");
     }
 
@@ -185,7 +193,17 @@ public class DatabaseManager {
      * @return the SQLite connection
      */
     public Connection getConnection() {
-        return connection;
+        return writeConnection;
+    }
+
+    /**
+     * Returns the connection reserved for {@link DatabaseReadExecutor}.
+     * Production code must only access this connection from that executor.
+     *
+     * @return the read-only SQLite connection
+     */
+    public Connection getReadConnection() {
+        return readConnection;
     }
 
     /**
@@ -216,23 +234,23 @@ public class DatabaseManager {
      * @throws SQLException if a database error occurs or the task throws
      */
     public <T> T executeInTransactionWithResult(TransactionFunction<T> task) throws SQLException {
-        connection.setAutoCommit(false);
+        writeConnection.setAutoCommit(false);
         Throwable failure = null;
         try {
-            T result = task.execute(connection);
-            connection.commit();
+            T result = task.execute(writeConnection);
+            writeConnection.commit();
             return result;
         } catch (SQLException | RuntimeException | Error e) {
             failure = e;
             try {
-                connection.rollback();
+                writeConnection.rollback();
             } catch (SQLException rollbackFailure) {
                 e.addSuppressed(rollbackFailure);
             }
             throw e;
         } finally {
             try {
-                connection.setAutoCommit(true);
+                writeConnection.setAutoCommit(true);
             } catch (SQLException restoreFailure) {
                 if (failure != null) {
                     failure.addSuppressed(restoreFailure);
@@ -248,13 +266,18 @@ public class DatabaseManager {
      * Must be called when the plugin is disabled.
      */
     public void close() {
-        if (connection != null) {
-            try {
-                connection.close();
-                LOGGER.info("Database connection closed.");
-            } catch (SQLException e) {
-                LOGGER.warning("Failed to close database connection: " + e.getMessage());
-            }
+        closeConnection(readConnection, "read");
+        closeConnection(writeConnection, "write");
+    }
+
+    private void closeConnection(Connection target, String role) {
+        if (target == null)
+            return;
+        try {
+            target.close();
+            LOGGER.info("Database " + role + " connection closed.");
+        } catch (SQLException e) {
+            LOGGER.warning("Failed to close database " + role + " connection: " + e.getMessage());
         }
     }
 

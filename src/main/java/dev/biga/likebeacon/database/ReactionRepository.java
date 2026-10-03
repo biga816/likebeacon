@@ -35,13 +35,12 @@ public class ReactionRepository {
      * @param reaction the reaction to save
      * @throws SQLException if a database operation fails
      */
-    public void save(Reaction reaction) throws SQLException {
+    public void save(Connection conn, Reaction reaction) throws SQLException {
         String sql = """
                 INSERT INTO reactions
                     (reaction_id, server_id, created_at, item_id, reactor_uuid, author_uuid, reaction_type)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
-        Connection conn = databaseManager.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, reaction.reactionId());
             ps.setString(2, reaction.serverId());
@@ -65,7 +64,7 @@ public class ReactionRepository {
      */
     public boolean exists(String itemId, UUID senderUuid) throws SQLException {
         String sql = "SELECT 1 FROM reactions WHERE item_id = ? AND reactor_uuid = ? LIMIT 1";
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, itemId);
             ps.setString(2, senderUuid.toString());
@@ -94,7 +93,7 @@ public class ReactionRepository {
                 ORDER BY created_at DESC
                 LIMIT ?
                 """;
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setString(2, senderUuid.toString());
@@ -131,7 +130,7 @@ public class ReactionRepository {
         String placeholders = itemIds.stream().map(id -> "?").collect(Collectors.joining(", "));
         String sql = "SELECT item_id FROM reactions WHERE item_id IN (" + placeholders
                 + ") AND reactor_uuid = ?";
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (int i = 0; i < itemIds.size(); i++) {
                 ps.setString(i + 1, itemIds.get(i));

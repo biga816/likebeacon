@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.sql.SQLException;
+import java.sql.Connection;
 import java.util.function.Function;
 
 /** Thread-safe, memory-only buffer for chat messages awaiting promotion. */
@@ -39,17 +40,17 @@ public class PendingChatService {
     }
 
     /** Generates and reserves a code atomically with insertion into the buffer. */
-    public synchronized PendingChat putGenerated(DisplayCodeGenerator generator, String serverId,
+    public synchronized PendingChat putGenerated(Connection connection, DisplayCodeGenerator generator, String serverId,
             Function<String, PendingChat> factory) throws SQLException {
-        String code = generator.generateUnique(serverId, reservedCodes());
+        String code = generator.generateUnique(connection, serverId, reservedCodes());
         PendingChat pending = factory.apply(code);
         put(pending);
         return pending;
     }
 
-    public synchronized String reserveDisplayCode(DisplayCodeGenerator generator, String serverId)
+    public synchronized String reserveDisplayCode(Connection connection, DisplayCodeGenerator generator, String serverId)
             throws SQLException {
-        String code = generator.generateUnique(serverId, reservedCodes());
+        String code = generator.generateUnique(connection, serverId, reservedCodes());
         externalReservations.add(code);
         return code;
     }

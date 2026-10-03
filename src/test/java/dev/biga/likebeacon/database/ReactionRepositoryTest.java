@@ -43,12 +43,14 @@ class ReactionRepositoryTest {
         FeedItem item = new FeedItem(
                 "duplicate-item", "test", "ABCD", 1L, "CHAT", authorUuid, null,
                 "body", null, null, null, null);
-        feedItemRepository.save(item);
+        databaseManager.executeInTransaction(conn -> {
+            feedItemRepository.save(conn, item);
+            reactionRepository.save(conn, reaction("reaction-1", item.itemId(), reactorUuid, authorUuid));
+        });
 
-        reactionRepository.save(reaction("reaction-1", item.itemId(), reactorUuid, authorUuid));
-
-        assertThrows(SQLException.class, () -> reactionRepository.save(
-                reaction("reaction-2", item.itemId(), reactorUuid, authorUuid)));
+        assertThrows(SQLException.class, () -> databaseManager.executeInTransaction(conn ->
+                reactionRepository.save(conn,
+                        reaction("reaction-2", item.itemId(), reactorUuid, authorUuid))));
         assertTrue(reactionRepository.exists(item.itemId(), reactorUuid));
     }
 

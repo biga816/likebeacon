@@ -17,8 +17,8 @@ import java.util.UUID;
  * Write methods accept an explicit {@link Connection} so they can participate
  * in a caller-managed transaction via
  * {@link DatabaseManager#executeInTransaction}. Read methods use the shared
- * connection from {@link DatabaseManager#getConnection()} and may be called
- * from the main thread.
+ * connection from {@link DatabaseManager#getReadConnection()} and must be called
+ * from {@link DatabaseReadExecutor}.
  * </p>
  */
 public class PlayerStatsRepository {
@@ -144,7 +144,7 @@ public class PlayerStatsRepository {
      */
     public Optional<PlayerStats> getPlayerStats(String serverId, UUID playerUuid) throws SQLException {
         String sql = "SELECT * FROM player_stats WHERE server_id = ? AND player_uuid = ?";
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setString(2, playerUuid.toString());
@@ -196,7 +196,7 @@ public class PlayerStatsRepository {
     private List<PlayerStats> queryTop(String serverId, String column, int limit) throws SQLException {
         // column is a compile-time constant, not user input — safe to interpolate
         String sql = "SELECT * FROM player_stats WHERE server_id = ? ORDER BY " + column + " DESC LIMIT ?";
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setInt(2, limit);

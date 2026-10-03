@@ -4,6 +4,7 @@ import dev.biga.likebeacon.database.FeedItemRepository;
 import dev.biga.likebeacon.database.ItemStatsRepository;
 import dev.biga.likebeacon.database.DailyLimitRepository;
 import dev.biga.likebeacon.database.DatabaseManager;
+import dev.biga.likebeacon.database.DatabaseReadExecutor;
 import dev.biga.likebeacon.database.DatabaseWriteExecutor;
 import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.database.PlayerStatsRepository;
@@ -48,6 +49,7 @@ public class LikeService {
     private final PlayerStatsRepository playerStatsRepository;
     private final ItemStatsRepository itemStatsRepository;
     private final DatabaseManager databaseManager;
+    private final DatabaseReadExecutor readExecutor;
     private final DatabaseWriteExecutor writeExecutor;
     private final DisplayCodeGenerator displayCodeGenerator;
     private final CooldownService cooldownService;
@@ -70,6 +72,7 @@ public class LikeService {
             PlayerStatsRepository playerStatsRepository,
             ItemStatsRepository itemStatsRepository,
             DatabaseManager databaseManager,
+            DatabaseReadExecutor readExecutor,
             DatabaseWriteExecutor writeExecutor,
             DisplayCodeGenerator displayCodeGenerator,
             CooldownService cooldownService,
@@ -87,6 +90,7 @@ public class LikeService {
         this.playerStatsRepository = playerStatsRepository;
         this.itemStatsRepository = itemStatsRepository;
         this.databaseManager = databaseManager;
+        this.readExecutor = readExecutor;
         this.writeExecutor = writeExecutor;
         this.displayCodeGenerator = displayCodeGenerator;
         this.cooldownService = cooldownService;
@@ -105,8 +109,8 @@ public class LikeService {
     /**
      * Sends a like from the sender to the target player.
      * <p>
-     * Validates inputs and checks limits on the main thread, then submits a
-     * single atomic write transaction to the {@link DatabaseWriteExecutor}. On
+     * Validates inputs on the main thread, then checks and increments the daily
+     * limit in the same atomic write transaction. On
      * completion the success/failure callback runs back on the server main thread.
      * </p>
      *
@@ -143,32 +147,9 @@ public class LikeService {
             return;
         }
 
-        // ── 4. Check daily limit (DB read, main thread) ───────────────────────
+        // ── 4. Capture Bukkit values before leaving the main thread ──────────
         String today = LocalDate.now(ZoneOffset.UTC).toString();
         int dailyLimit = config.getInt("limits.dailyDirectLikeLimit", 20);
-        try {
-            int dailyCount = dailyLimitRepository.getDailyCount(serverId, today, sender.getUniqueId());
-            if (dailyCount >= dailyLimit) {
-                sender.sendMessage(messageFactory.error("likebeacon.error.daily-limit", Component.text(dailyLimit)));
-                return;
-            }
-        } catch (SQLException e) {
-            log.log(Level.SEVERE, "Failed to get daily count for " + sender.getUniqueId(), e);
-            sender.sendMessage(messageFactory.error("likebeacon.error.internal"));
-            return;
-        }
-
-        // ── 5. Generate display code (DB read, main thread) ───────────────────
-        String displayCode;
-        try {
-            displayCode = pendingChatService.reserveDisplayCode(displayCodeGenerator, serverId);
-        } catch (SQLException e) {
-            log.log(Level.SEVERE, "Failed to generate unique displayCode", e);
-            sender.sendMessage(messageFactory.error("likebeacon.error.internal"));
-            return;
-        }
-
-        // ── 6. Capture Bukkit values before leaving the main thread ───────────
         UUID senderUuid = sender.getUniqueId();
         String senderName = sender.getName();
         UUID authorUuid = target.getUniqueId();
@@ -179,36 +160,59 @@ public class LikeService {
         int y = senderLocation.getBlockY();
         int z = senderLocation.getBlockZ();
 
+        // ── 5. Allocate a collision-free code on the DB reader ───────────────
+        readExecutor.submit(conn -> pendingChatService.reserveDisplayCode(
+                conn, displayCodeGenerator, serverId))
+                .whenComplete((displayCode, allocationFailure) ->
+                        plugin.getServer().getScheduler().runTask(plugin, () -> {
+                            if (allocationFailure != null) {
+                                log.log(Level.SEVERE, "Failed to generate unique displayCode", unwrap(allocationFailure));
+                                Player online = Bukkit.getPlayer(senderUuid);
+                                if (online != null)
+                                    online.sendMessage(messageFactory.error("likebeacon.error.internal"));
+                                return;
+                            }
+                            persistDirectLike(senderUuid, senderName, authorUuid, targetName, reason,
+                                    world, x, y, z, today, dailyLimit, displayCode);
+                        }));
+    }
+
+    private void persistDirectLike(UUID senderUuid, String senderName, UUID authorUuid, String targetName,
+            String reason, String world, int x, int y, int z, String today, int dailyLimit,
+            String displayCode) {
         String itemId = UUID.randomUUID().toString();
         long now = System.currentTimeMillis();
-
-        FeedItem item = new FeedItem(
-                itemId, serverId, displayCode, now, "DIRECT",
+        FeedItem item = new FeedItem(itemId, serverId, displayCode, now, "DIRECT",
                 authorUuid, senderUuid, reason, world, x, y, z);
-        Reaction initialReaction = new Reaction(
-                UUID.randomUUID().toString(), serverId, now, itemId, senderUuid, authorUuid, "LIKE");
+        Reaction initialReaction = new Reaction(UUID.randomUUID().toString(), serverId, now,
+                itemId, senderUuid, authorUuid, "LIKE");
 
-        // ── 7. Submit atomic write transaction ────────────────────────────────
-        writeExecutor.submit(() -> {
-            databaseManager.executeInTransaction(conn -> {
-                itemRepository.save(item);
-                reactionRepository.save(initialReaction);
-                itemStatsRepository.insertNew(conn, serverId, itemId, now);
-                playerStatsRepository.upsertSentCount(conn, serverId, senderUuid, senderName, now);
-                playerStatsRepository.upsertReceivedCount(conn, serverId, authorUuid, targetName, now);
-                playerStatsRepository.upsertReactedCount(conn, serverId, senderUuid, senderName, now);
-                dailyLimitRepository.increment(serverId, today, senderUuid);
-            });
-            return null;
-        }).whenComplete((ignored, ex) ->
-        // ── 8. Callback on the main thread ────────────────────────────
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
+        writeExecutor.submit(() -> databaseManager.executeInTransactionWithResult(conn -> {
+            if (!dailyLimitRepository.incrementIfBelowLimit(
+                    conn, serverId, today, senderUuid, dailyLimit))
+                return false;
+            itemRepository.save(conn, item);
+            reactionRepository.save(conn, initialReaction);
+            itemStatsRepository.insertNew(conn, serverId, itemId, now);
+            playerStatsRepository.upsertSentCount(conn, serverId, senderUuid, senderName, now);
+            playerStatsRepository.upsertReceivedCount(conn, serverId, authorUuid, targetName, now);
+            playerStatsRepository.upsertReactedCount(conn, serverId, senderUuid, senderName, now);
+            return true;
+        })).whenComplete((created, ex) -> plugin.getServer().getScheduler().runTask(plugin, () -> {
             pendingChatService.releaseDisplayCode(displayCode);
             if (ex != null) {
                 log.log(Level.SEVERE, "Failed to persist like from " + senderUuid, unwrap(ex));
                 Player senderOnline = Bukkit.getPlayer(senderUuid);
                 if (senderOnline != null) {
                     senderOnline.sendMessage(messageFactory.error("likebeacon.error.internal"));
+                }
+                return;
+            }
+            if (!created) {
+                Player senderOnline = Bukkit.getPlayer(senderUuid);
+                if (senderOnline != null) {
+                    senderOnline.sendMessage(messageFactory.error(
+                            "likebeacon.error.daily-limit", Component.text(dailyLimit)));
                 }
                 return;
             }
@@ -260,21 +264,21 @@ public class LikeService {
      * @param displayCode the 4-character display code (without {@code #} prefix)
      */
     public void react(Player sender, String displayCode) {
-        FeedItem item;
-        try {
-            var optItem = itemRepository.findLatestByDisplayCode(serverId, displayCode);
-            if (optItem.isEmpty()) {
-                reactToPending(sender, displayCode);
-                return;
-            }
-            item = optItem.get();
-        } catch (SQLException e) {
-            log.log(Level.SEVERE, "Failed to find item by displayCode: " + displayCode, e);
-            sender.sendMessage(messageFactory.error("likebeacon.error.internal"));
-            return;
-        }
-
-        reactToItem(sender, item);
+        UUID senderUuid = sender.getUniqueId();
+        readExecutor.submit(conn -> itemRepository.findLatestByDisplayCode(serverId, displayCode))
+                .whenComplete((optItem, ex) -> plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    Player online = Bukkit.getPlayer(senderUuid);
+                    if (online == null)
+                        return;
+                    if (ex != null) {
+                        log.log(Level.SEVERE, "Failed to find item by displayCode: " + displayCode, unwrap(ex));
+                        online.sendMessage(messageFactory.error("likebeacon.error.internal"));
+                    } else if (optItem.isEmpty()) {
+                        reactToPending(online, displayCode);
+                    } else {
+                        reactToItem(online, optItem.get());
+                    }
+                }));
     }
 
     private void reactToPending(Player sender, String displayCode) {
@@ -324,8 +328,8 @@ public class LikeService {
 
         writeExecutor.submit(() -> {
             databaseManager.executeInTransaction(conn -> {
-                itemRepository.save(item);
-                reactionRepository.save(reaction);
+                itemRepository.save(conn, item);
+                reactionRepository.save(conn, reaction);
                 itemStatsRepository.insertNew(conn, serverId, itemId, now);
                 playerStatsRepository.upsertReceivedCount(
                         conn, serverId, pending.authorUuid(), pending.authorName(), now);
@@ -393,20 +397,8 @@ public class LikeService {
         String displayCode = item.displayCode();
         Component displayCodeComponent = messageFactory.displayCodeLabel(displayCode);
 
-        // 2. Check for duplicate reaction (DB read, main thread)
-        try {
-            if (reactionRepository.exists(item.itemId(), sender.getUniqueId())) {
-                sender.sendMessage(messageFactory.error("likebeacon.error.already-reacted", displayCodeComponent));
-                return;
-            }
-        } catch (SQLException e) {
-            log.log(Level.SEVERE,
-                    "Failed to check event existence for itemId: " + item.itemId(), e);
-            sender.sendMessage(messageFactory.error("likebeacon.error.internal"));
-            return;
-        }
-
-        // 3. Capture values before leaving the main thread
+        // 2. Capture values before leaving the main thread. Duplicate reactions
+        // are rejected atomically by the database UNIQUE constraint.
         UUID senderUuid = sender.getUniqueId();
         String senderName = sender.getName();
         // Resolve target name on main thread (may call Bukkit API)
@@ -420,9 +412,9 @@ public class LikeService {
         Reaction reaction = new Reaction(
                 reactionId, serverId, now, item.itemId(), senderUuid, item.authorUuid(), "LIKE");
 
-        // 4. Submit atomic write transaction
+        // 3. Submit atomic write transaction
         writeExecutor.submit(() -> databaseManager.executeInTransactionWithResult(conn -> {
-            reactionRepository.save(reaction);
+            reactionRepository.save(conn, reaction);
             long reactionCount = itemStatsRepository.incrementReactionCount(
                     conn, serverId, item.itemId(), now);
             playerStatsRepository.upsertReactedCount(conn, serverId, senderUuid, senderName, now);
@@ -430,7 +422,7 @@ public class LikeService {
                     conn, serverId, item.authorUuid(), targetName, now);
             return reactionCount;
         })).whenComplete((reactionCount, ex) ->
-        // 5. Callback on the main thread
+        // 4. Callback on the main thread
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             Player senderOnline = Bukkit.getPlayer(senderUuid);
             if (ex != null) {

@@ -7,6 +7,7 @@ import dev.biga.likebeacon.database.FeedItemRepository;
 import dev.biga.likebeacon.database.ItemStatsRepository;
 import dev.biga.likebeacon.database.DailyLimitRepository;
 import dev.biga.likebeacon.database.DatabaseManager;
+import dev.biga.likebeacon.database.DatabaseReadExecutor;
 import dev.biga.likebeacon.database.DatabaseWriteExecutor;
 import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.database.PlayerStatsRepository;
@@ -24,6 +25,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
 import java.util.logging.Level;
+import java.util.concurrent.CompletionException;
 
 /**
  * Entry point for the LikeBeacon plugin.
@@ -35,6 +37,7 @@ public class LikeBeaconPlugin extends JavaPlugin {
 
     private DatabaseManager databaseManager;
     private DatabaseWriteExecutor writeExecutor;
+    private DatabaseReadExecutor readExecutor;
     private I18nService i18nService;
     private LikeNotificationAggregationService notificationAggregationService;
 
@@ -69,11 +72,12 @@ public class LikeBeaconPlugin extends JavaPlugin {
 
         // 4. Initialize the single-writer executor
         writeExecutor = new DatabaseWriteExecutor();
+        readExecutor = new DatabaseReadExecutor(databaseManager);
 
         // 5. Initialize repositories
         FeedItemRepository itemRepo = new FeedItemRepository(databaseManager);
         ReactionRepository reactionRepo = new ReactionRepository(databaseManager);
-        DailyLimitRepository dailyRepo = new DailyLimitRepository(databaseManager);
+        DailyLimitRepository dailyRepo = new DailyLimitRepository();
         PlayerStatsRepository playerStatsRepo = new PlayerStatsRepository(databaseManager);
         ItemStatsRepository itemStatsRepo = new ItemStatsRepository(databaseManager);
 
@@ -81,8 +85,11 @@ public class LikeBeaconPlugin extends JavaPlugin {
         CooldownService cooldownService = new CooldownService(getConfig());
         RecentService recentService = new RecentService(getConfig());
         try {
-            recentService.loadFromDb(itemRepo, serverId);
-        } catch (SQLException e) {
+            readExecutor.submit(conn -> {
+                recentService.loadFromDb(itemRepo, serverId);
+                return null;
+            }).join();
+        } catch (CompletionException e) {
             getLogger().log(Level.SEVERE, "Failed to load recent items on startup", e);
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -100,17 +107,18 @@ public class LikeBeaconPlugin extends JavaPlugin {
         LikeService likeService = new LikeService(
                 itemRepo, reactionRepo, dailyRepo,
                 playerStatsRepo, itemStatsRepo,
-                databaseManager, writeExecutor,
+                databaseManager, readExecutor, writeExecutor,
                 displayCodeGen, cooldownService, recentService, pendingChatService, messageFactory,
                 effectService, notificationAggregationService, getConfig(), this, serverId);
 
         // 7. Book UI service
         LikeBookService bookService = new LikeBookService(
-                playerStatsRepo, itemStatsRepo, itemRepo, reactionRepo, messageFactory, this, serverId);
+                playerStatsRepo, itemStatsRepo, itemRepo, reactionRepo, readExecutor,
+                messageFactory, this, serverId);
 
         // 8. Register commands
         LikeCommand likeCommand = new LikeCommand(likeService, recentService,
-                itemStatsRepo, reactionRepo, messageFactory, bookService);
+                itemStatsRepo, reactionRepo, readExecutor, messageFactory, bookService, this);
         getCommand("like").setExecutor(likeCommand);
         getCommand("like").setTabCompleter(likeCommand);
 
@@ -118,7 +126,7 @@ public class LikeBeaconPlugin extends JavaPlugin {
             ChatLikeEligibilityService eligibility = new ChatLikeEligibilityService(
                     true, getConfig().getInt("chat.minLength", 4));
             getServer().getPluginManager().registerEvents(new ChatLikeListener(
-                    pendingChatService, displayCodeGen, messageFactory, eligibility, serverId,
+                    pendingChatService, displayCodeGen, readExecutor, messageFactory, eligibility, serverId,
                     getConfig().getInt("chat.maxStoredLength", 100)), this);
         }
 
@@ -132,6 +140,9 @@ public class LikeBeaconPlugin extends JavaPlugin {
         }
         if (writeExecutor != null) {
             writeExecutor.shutdown();
+        }
+        if (readExecutor != null) {
+            readExecutor.shutdown();
         }
         if (i18nService != null) {
             i18nService.close();

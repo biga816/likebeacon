@@ -12,68 +12,37 @@ import java.util.UUID;
  */
 public class DailyLimitRepository {
 
-    private final DatabaseManager databaseManager;
-
     /**
-     * Constructs a DailyLimitRepository.
+     * Atomically increments today's direct-like count when it is below the limit.
      *
-     * @param databaseManager the database connection manager
-     */
-    public DailyLimitRepository(DatabaseManager databaseManager) {
-        this.databaseManager = databaseManager;
-    }
-
-    /**
-     * Returns the number of likes sent by the given player on the specified date
-     * for the given server. Returns 0 if no record exists.
-     *
-     * @param serverId   the server ID to scope the lookup
-     * @param date       the target date in "yyyy-MM-dd" format
+     * @param conn       the connection in the active write transaction
+     * @param serverId   the server ID to scope the update
+     * @param date       the target date in {@code yyyy-MM-dd} format
      * @param senderUuid the sender's UUID
-     * @return the like count for that day (0 if no record exists)
+     * @param limit      the maximum allowed count
+     * @return {@code true} when the count was incremented; {@code false} at the limit
      * @throws SQLException if a database operation fails
      */
-    public int getDailyCount(String serverId, String date, UUID senderUuid) throws SQLException {
-        String sql = """
-                SELECT count FROM sender_daily
-                WHERE date = ? AND server_id = ? AND player_uuid = ? AND action_type = 'DIRECT'
-                """;
-        Connection conn = databaseManager.getConnection();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, date);
-            ps.setString(2, serverId);
-            ps.setString(3, senderUuid.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("count");
-                }
-                return 0;
-            }
-        }
-    }
-
-    /**
-     * Increments the like count for the given player on the specified date and
-     * server by 1. Creates a new record (count=1) if none exists.
-     *
-     * @param serverId   the server ID to scope the increment
-     * @param date       the target date in "yyyy-MM-dd" format
-     * @param senderUuid the sender's UUID
-     * @throws SQLException if a database operation fails
-     */
-    public void increment(String serverId, String date, UUID senderUuid) throws SQLException {
+    public boolean incrementIfBelowLimit(Connection conn, String serverId, String date,
+            UUID senderUuid, int limit) throws SQLException {
+        if (limit <= 0)
+            return false;
         String sql = """
                 INSERT INTO sender_daily (date, server_id, player_uuid, action_type, count)
                 VALUES (?, ?, ?, 'DIRECT', 1)
                 ON CONFLICT(date, server_id, player_uuid, action_type) DO UPDATE SET
                     count = count + 1
+                WHERE count < ?
+                RETURNING count
                 """;
-        Connection conn = databaseManager.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, date);
             ps.setString(2, serverId);
             ps.setString(3, senderUuid.toString());
-            ps.executeUpdate();
+            ps.setInt(4, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package dev.biga.likebeacon.listener;
 
 import dev.biga.likebeacon.model.PendingChat;
+import dev.biga.likebeacon.database.DatabaseReadExecutor;
 import dev.biga.likebeacon.service.ChatLikeEligibilityService;
 import dev.biga.likebeacon.service.PendingChatService;
 import dev.biga.likebeacon.util.DisplayCodeGenerator;
@@ -13,7 +14,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import java.sql.SQLException;
+import java.util.concurrent.CompletionException;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -26,12 +28,15 @@ public class ChatLikeListener implements Listener {
     private final ChatLikeEligibilityService eligibilityService;
     private final String serverId;
     private final int maxStoredLength;
+    private final DatabaseReadExecutor readExecutor;
 
     public ChatLikeListener(PendingChatService pendingChatService, DisplayCodeGenerator displayCodeGenerator,
-            MessageFactory messageFactory, ChatLikeEligibilityService eligibilityService,
+            DatabaseReadExecutor readExecutor, MessageFactory messageFactory,
+            ChatLikeEligibilityService eligibilityService,
             String serverId, int maxStoredLength) {
         this.pendingChatService = pendingChatService;
         this.displayCodeGenerator = displayCodeGenerator;
+        this.readExecutor = readExecutor;
         this.messageFactory = messageFactory;
         this.eligibilityService = eligibilityService;
         this.serverId = serverId;
@@ -44,13 +49,18 @@ public class ChatLikeListener implements Listener {
         if (!eligibilityService.isEligible(plainText))
             return;
 
+        UUID authorUuid = event.getPlayer().getUniqueId();
+        String authorName = event.getPlayer().getName();
+        String storedText = truncate(plainText, maxStoredLength);
+        long createdAt = System.currentTimeMillis();
         PendingChat pending;
         try {
-            pending = pendingChatService.putGenerated(displayCodeGenerator, serverId,
-                    displayCode -> new PendingChat(displayCode, event.getPlayer().getUniqueId(),
-                            event.getPlayer().getName(), truncate(plainText, maxStoredLength),
-                            null, null, null, null, System.currentTimeMillis()));
-        } catch (SQLException e) {
+            pending = readExecutor.submit(conn -> pendingChatService.putGenerated(
+                    conn, displayCodeGenerator, serverId,
+                    displayCode -> new PendingChat(displayCode, authorUuid,
+                            authorName, storedText, null, null, null, null, createdAt)))
+                    .join();
+        } catch (CompletionException e) {
             log.log(Level.WARNING, "Failed to allocate a display code for chat", e);
             return;
         }

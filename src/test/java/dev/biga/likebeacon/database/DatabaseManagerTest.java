@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,6 +40,15 @@ class DatabaseManagerTest {
 
         assertEquals(1, feedItemCount("committed"));
         assertTrue(databaseManager.getConnection().getAutoCommit());
+    }
+
+    @Test
+    void providesSeparateReadOnlyConnection() throws SQLException {
+        Connection writeConnection = databaseManager.getConnection();
+        Connection readConnection = databaseManager.getReadConnection();
+
+        assertNotSame(writeConnection, readConnection);
+        assertThrows(SQLException.class, () -> insertFeedItem(readConnection, "read-write-attempt"));
     }
 
     @Test
@@ -89,7 +99,7 @@ class DatabaseManagerTest {
     }
 
     private int feedItemCount(String itemId) throws SQLException {
-        try (var statement = databaseManager.getConnection()
+        try (var statement = databaseManager.getReadConnection()
                 .prepareStatement("SELECT COUNT(*) FROM feed_items WHERE item_id = ?")) {
             statement.setString(1, itemId);
             try (var resultSet = statement.executeQuery()) {

@@ -37,7 +37,7 @@ class ItemStatsRepositoryTest {
     void incrementReturnsPersistedReactionCount() throws Exception {
         FeedItem item = item("item-stats");
         databaseManager.executeInTransaction(conn -> {
-            feedItemRepository.save(item);
+            feedItemRepository.save(conn, item);
             itemStatsRepository.insertNew(conn, "test", item.itemId(), 1L);
         });
 

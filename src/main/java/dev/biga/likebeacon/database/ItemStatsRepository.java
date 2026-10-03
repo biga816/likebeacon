@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  * <p>
  * Write methods accept an explicit {@link Connection} to participate in a
  * caller-managed transaction. Read methods use the shared connection from
- * {@link DatabaseManager#getConnection()}.
+ * {@link DatabaseManager#getReadConnection()}.
  * </p>
  */
 public class ItemStatsRepository {
@@ -120,7 +120,7 @@ public class ItemStatsRepository {
                 ORDER BY s.reaction_count DESC
                 LIMIT ?
                 """;
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setInt(2, limit);
@@ -158,7 +158,7 @@ public class ItemStatsRepository {
         String placeholders = itemIds.stream().map(id -> "?").collect(Collectors.joining(", "));
         String sql = "SELECT item_id, reaction_count FROM item_stats WHERE item_id IN ("
                 + placeholders + ")";
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (int i = 0; i < itemIds.size(); i++) {
                 ps.setString(i + 1, itemIds.get(i));
@@ -198,7 +198,7 @@ public class ItemStatsRepository {
                 ORDER BY s.reaction_count DESC, b.created_at DESC
                 LIMIT ?
                 """;
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setString(2, playerUuid.toString());
@@ -230,7 +230,7 @@ public class ItemStatsRepository {
      */
     public Optional<ItemStats> getStats(String itemId) throws SQLException {
         String sql = "SELECT * FROM item_stats WHERE item_id = ?";
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, itemId);
             try (ResultSet rs = ps.executeQuery()) {

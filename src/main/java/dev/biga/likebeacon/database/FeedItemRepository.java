@@ -34,14 +34,13 @@ public class FeedItemRepository {
      * @param item the item to save
      * @throws SQLException if a database operation fails
      */
-    public void save(FeedItem item) throws SQLException {
+    public void save(Connection conn, FeedItem item) throws SQLException {
         String sql = """
                 INSERT INTO feed_items
                     (item_id, server_id, display_code, created_at, item_type, author_uuid,
                      initiator_uuid, body_text, world, x, y, z)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
-        Connection conn = databaseManager.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, item.itemId());
             ps.setString(2, item.serverId());
@@ -76,7 +75,7 @@ public class FeedItemRepository {
                 ORDER BY created_at DESC
                 LIMIT 1
                 """;
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setString(2, displayCode);
@@ -105,7 +104,7 @@ public class FeedItemRepository {
                 ORDER BY created_at DESC
                 LIMIT ?
                 """;
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setInt(2, limit);
@@ -129,7 +128,7 @@ public class FeedItemRepository {
      * @return true if a matching item exists in the recent window
      * @throws SQLException if a database operation fails
      */
-    public boolean existsInRecentByDisplayCode(String serverId, String displayCode, int recentWindow)
+    public boolean existsInRecentByDisplayCode(Connection conn, String serverId, String displayCode, int recentWindow)
             throws SQLException {
         String sql = """
                 SELECT 1 FROM feed_items
@@ -142,7 +141,6 @@ public class FeedItemRepository {
                 )
                 LIMIT 1
                 """;
-        Connection conn = databaseManager.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setString(2, displayCode);
@@ -175,7 +173,7 @@ public class FeedItemRepository {
                 ORDER BY created_at DESC
                 LIMIT ?
                 """;
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setString(2, playerUuid.toString());
@@ -209,7 +207,7 @@ public class FeedItemRepository {
                 ORDER BY created_at DESC
                 LIMIT ?
                 """;
-        Connection conn = databaseManager.getConnection();
+        Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setString(2, playerUuid.toString());
