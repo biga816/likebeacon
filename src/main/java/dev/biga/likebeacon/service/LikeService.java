@@ -421,7 +421,7 @@ public class LikeService {
                 reactionId, serverId, now, item.itemId(), senderUuid, item.authorUuid(), "LIKE");
 
         // 4. Submit atomic write transaction
-        writeExecutor.submit(() -> databaseManager.executeInTransaction(conn -> {
+        writeExecutor.submit(() -> databaseManager.executeInTransactionWithResult(conn -> {
             reactionRepository.save(reaction);
             long reactionCount = itemStatsRepository.incrementReactionCount(
                     conn, serverId, item.itemId(), now);

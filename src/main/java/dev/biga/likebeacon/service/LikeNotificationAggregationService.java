@@ -30,7 +30,7 @@ public final class LikeNotificationAggregationService {
     private final boolean enabled;
     private final long quietMillis;
     private final long maxWaitMillis;
-    private final Map<String, NotificationBatch> batches = new HashMap<>();
+    private final Map<String, ReactionNotificationBatch> batches = new HashMap<>();
 
     private BukkitTask task;
 
@@ -72,7 +72,7 @@ public final class LikeNotificationAggregationService {
      */
     public void notifyImmediately(String reactorName, FeedItem item,
             String initiatorName, long reactionCount) {
-        send(new NotificationBatch(
+        send(new ReactionNotificationBatch(
                 reactorName, item, initiatorName, reactionCount, System.currentTimeMillis()));
     }
 
@@ -85,7 +85,7 @@ public final class LikeNotificationAggregationService {
         }
 
         long now = System.currentTimeMillis();
-        NotificationBatch batch = batches.get(item.itemId());
+        ReactionNotificationBatch batch = batches.get(item.itemId());
         if (batch != null && batch.isDue(now, quietMillis, maxWaitMillis)) {
             batches.remove(item.itemId());
             send(batch);
@@ -93,7 +93,7 @@ public final class LikeNotificationAggregationService {
         }
 
         if (batch == null) {
-            batches.put(item.itemId(), new NotificationBatch(
+            batches.put(item.itemId(), new ReactionNotificationBatch(
                     reactorName, item, initiatorName, reactionCount, now));
         } else {
             batch.addReaction(reactionCount, now);
@@ -102,10 +102,10 @@ public final class LikeNotificationAggregationService {
 
     private void flushDue() {
         long now = System.currentTimeMillis();
-        List<NotificationBatch> due = new ArrayList<>();
-        Iterator<NotificationBatch> iterator = batches.values().iterator();
+        List<ReactionNotificationBatch> due = new ArrayList<>();
+        Iterator<ReactionNotificationBatch> iterator = batches.values().iterator();
         while (iterator.hasNext()) {
-            NotificationBatch batch = iterator.next();
+            ReactionNotificationBatch batch = iterator.next();
             if (batch.isDue(now, quietMillis, maxWaitMillis)) {
                 iterator.remove();
                 due.add(batch);
@@ -114,17 +114,17 @@ public final class LikeNotificationAggregationService {
         due.forEach(this::send);
     }
 
-    private void send(NotificationBatch batch) {
-        Player target = Bukkit.getPlayer(batch.item.authorUuid());
+    private void send(ReactionNotificationBatch batch) {
+        Player target = Bukkit.getPlayer(batch.item().authorUuid());
         if (target == null) {
             return;
         }
 
-        Component reactorDisplay = Component.text(batch.firstReactorName).color(NamedTextColor.WHITE);
-        Component bodyDisplay = Component.text(batch.item.bodyText()).color(NamedTextColor.WHITE);
-        Component totalDisplay = number(batch.latestReactionCount);
+        Component reactorDisplay = Component.text(batch.firstReactorName()).color(NamedTextColor.WHITE);
+        Component bodyDisplay = Component.text(batch.item().bodyText()).color(NamedTextColor.WHITE);
+        Component totalDisplay = number(batch.latestReactionCount());
 
-        if (batch.newReactionCount == 1) {
+        if (batch.newReactionCount() == 1) {
             sendSingle(target, batch, reactorDisplay, bodyDisplay, totalDisplay);
         } else {
             sendGroup(target, batch, reactorDisplay, bodyDisplay, totalDisplay);
@@ -132,9 +132,9 @@ public final class LikeNotificationAggregationService {
         effectService.showReceivedLikeEffect(target);
     }
 
-    private void sendSingle(Player target, NotificationBatch batch,
+    private void sendSingle(Player target, ReactionNotificationBatch batch,
             Component reactorDisplay, Component bodyDisplay, Component totalDisplay) {
-        if ("CHAT".equals(batch.item.itemType())) {
+        if ("CHAT".equals(batch.item().itemType())) {
             target.sendMessage(messageFactory.notification(
                     "likebeacon.reaction.chat.received",
                     reactorDisplay,
@@ -151,11 +151,11 @@ public final class LikeNotificationAggregationService {
                 totalDisplay));
     }
 
-    private void sendGroup(Player target, NotificationBatch batch,
+    private void sendGroup(Player target, ReactionNotificationBatch batch,
             Component reactorDisplay, Component bodyDisplay, Component totalDisplay) {
-        Component othersDisplay = number(batch.newReactionCount - 1L);
-        Component newCountDisplay = number(batch.newReactionCount);
-        if ("CHAT".equals(batch.item.itemType())) {
+        Component othersDisplay = number(batch.newReactionCount() - 1L);
+        Component newCountDisplay = number(batch.newReactionCount());
+        if ("CHAT".equals(batch.item().itemType())) {
             target.sendMessage(messageFactory.notification(
                     "likebeacon.reaction.chat.received-group",
                     reactorDisplay,
@@ -176,10 +176,10 @@ public final class LikeNotificationAggregationService {
                 totalDisplay));
     }
 
-    private static Component initiatorDisplay(NotificationBatch batch) {
-        String displayName = batch.initiatorName != null
-                ? batch.initiatorName
-                : batch.item.authorUuid().toString();
+    private static Component initiatorDisplay(ReactionNotificationBatch batch) {
+        String displayName = batch.initiatorName() != null
+                ? batch.initiatorName()
+                : batch.item().authorUuid().toString();
         return Component.text(displayName).color(NamedTextColor.WHITE);
     }
 
@@ -187,33 +187,4 @@ public final class LikeNotificationAggregationService {
         return Component.text(Long.toString(value)).color(NamedTextColor.WHITE);
     }
 
-    private static final class NotificationBatch {
-        private final String firstReactorName;
-        private final FeedItem item;
-        private final String initiatorName;
-        private final long firstAt;
-        private long lastAt;
-        private long latestReactionCount;
-        private long newReactionCount = 1L;
-
-        private NotificationBatch(String firstReactorName, FeedItem item,
-                String initiatorName, long reactionCount, long now) {
-            this.firstReactorName = firstReactorName;
-            this.item = item;
-            this.initiatorName = initiatorName;
-            this.latestReactionCount = reactionCount;
-            this.firstAt = now;
-            this.lastAt = now;
-        }
-
-        private void addReaction(long reactionCount, long now) {
-            newReactionCount++;
-            latestReactionCount = reactionCount;
-            lastAt = now;
-        }
-
-        private boolean isDue(long now, long quietMillis, long maxWaitMillis) {
-            return now - lastAt >= quietMillis || now - firstAt >= maxWaitMillis;
-        }
-    }
 }

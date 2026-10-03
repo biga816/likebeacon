@@ -201,7 +201,7 @@ public class DatabaseManager {
      * @throws SQLException if a database error occurs or the task throws
      */
     public void executeInTransaction(TransactionTask task) throws SQLException {
-        executeInTransaction(conn -> {
+        executeInTransactionWithResult(conn -> {
             task.execute(conn);
             return null;
         });
@@ -215,17 +215,31 @@ public class DatabaseManager {
      * @return the value produced after all writes in the task have succeeded
      * @throws SQLException if a database error occurs or the task throws
      */
-    public <T> T executeInTransaction(TransactionFunction<T> task) throws SQLException {
+    public <T> T executeInTransactionWithResult(TransactionFunction<T> task) throws SQLException {
         connection.setAutoCommit(false);
+        Throwable failure = null;
         try {
             T result = task.execute(connection);
             connection.commit();
             return result;
-        } catch (SQLException e) {
-            connection.rollback();
+        } catch (SQLException | RuntimeException | Error e) {
+            failure = e;
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackFailure) {
+                e.addSuppressed(rollbackFailure);
+            }
             throw e;
         } finally {
-            connection.setAutoCommit(true);
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException restoreFailure) {
+                if (failure != null) {
+                    failure.addSuppressed(restoreFailure);
+                } else {
+                    throw restoreFailure;
+                }
+            }
         }
     }
 
