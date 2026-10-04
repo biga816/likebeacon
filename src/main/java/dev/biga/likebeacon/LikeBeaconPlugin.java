@@ -13,10 +13,14 @@ import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.database.PlayerStatsRepository;
 import dev.biga.likebeacon.service.CooldownService;
 import dev.biga.likebeacon.service.ChatLikeEligibilityService;
+import dev.biga.likebeacon.service.ChatPromotionService;
+import dev.biga.likebeacon.service.DirectLikeService;
 import dev.biga.likebeacon.service.LikeEffectService;
+import dev.biga.likebeacon.service.LikeNotificationService;
 import dev.biga.likebeacon.service.LikeNotificationAggregationService;
 import dev.biga.likebeacon.service.LikeService;
 import dev.biga.likebeacon.service.RecentService;
+import dev.biga.likebeacon.service.ReactionService;
 import dev.biga.likebeacon.service.PendingChatService;
 import dev.biga.likebeacon.service.PlayerNameResolver;
 import dev.biga.likebeacon.util.I18nService;
@@ -103,16 +107,29 @@ public class LikeBeaconPlugin extends JavaPlugin {
         notificationAggregationService = new LikeNotificationAggregationService(
                 this, getConfig(), messageFactory, effectService);
         notificationAggregationService.start();
+        LikeNotificationService notificationService = new LikeNotificationService(
+                recentService, messageFactory, effectService, notificationAggregationService);
         PendingChatService pendingChatService = new PendingChatService(
                 getConfig().getInt("chat.pendingBufferSize", 30));
 
-        LikeService likeService = new LikeService(
+        DirectLikeService directLikeService = new DirectLikeService(
                 itemRepo, reactionRepo, dailyRepo,
                 playerStatsRepo, itemStatsRepo,
                 databaseManager, readExecutor, writeExecutor,
-                displayCodeGen, cooldownService, recentService, pendingChatService, messageFactory,
-                effectService, notificationAggregationService, playerNameResolver,
-                getConfig(), this, serverId);
+                displayCodeGen, cooldownService, pendingChatService, notificationService,
+                messageFactory, this, serverId,
+                getConfig().getInt("reason.maxLength", 48),
+                getConfig().getInt("limits.dailyDirectLikeLimit", 20));
+        ChatPromotionService chatPromotionService = new ChatPromotionService(
+                itemRepo, reactionRepo, itemStatsRepo, playerStatsRepo,
+                databaseManager, writeExecutor, pendingChatService, notificationService,
+                messageFactory, this, serverId);
+        ReactionService reactionService = new ReactionService(
+                itemRepo, reactionRepo, itemStatsRepo, playerStatsRepo,
+                databaseManager, readExecutor, writeExecutor, recentService,
+                chatPromotionService, notificationService, playerNameResolver,
+                messageFactory, this, serverId);
+        LikeService likeService = new LikeService(directLikeService, reactionService);
 
         // 7. Book UI service
         LikeBookService bookService = new LikeBookService(
