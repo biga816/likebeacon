@@ -167,26 +167,7 @@ public class FeedItemRepository {
      */
     public List<FeedItem> getRecentItemsReceivedBy(String serverId, UUID playerUuid, int limit)
             throws SQLException {
-        String sql = """
-                SELECT * FROM feed_items
-                WHERE server_id = ?
-                  AND author_uuid = ?
-                ORDER BY created_at DESC
-                LIMIT ?
-                """;
-        Connection conn = databaseManager.getReadConnection();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, serverId);
-            ps.setString(2, playerUuid.toString());
-            ps.setInt(3, limit);
-            try (ResultSet rs = ps.executeQuery()) {
-                List<FeedItem> results = new ArrayList<>();
-                while (rs.next()) {
-                    results.add(mapRow(rs));
-                }
-                return results;
-            }
-        }
+        return getRecentItemsByPlayer(serverId, playerUuid, limit, PlayerItemRole.AUTHOR);
     }
 
     /**
@@ -201,13 +182,13 @@ public class FeedItemRepository {
      */
     public List<FeedItem> getRecentItemsInitiatedBy(String serverId, UUID playerUuid, int limit)
             throws SQLException {
-        String sql = """
-                SELECT * FROM feed_items
-                WHERE server_id = ?
-                  AND initiator_uuid = ?
-                ORDER BY created_at DESC
-                LIMIT ?
-                """;
+        return getRecentItemsByPlayer(serverId, playerUuid, limit, PlayerItemRole.INITIATOR);
+    }
+
+    private List<FeedItem> getRecentItemsByPlayer(String serverId, UUID playerUuid, int limit,
+            PlayerItemRole role) throws SQLException {
+        String sql = "SELECT * FROM feed_items WHERE server_id = ? AND " + role.column()
+                + " = ? ORDER BY created_at DESC LIMIT ?";
         Connection conn = databaseManager.getReadConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
@@ -269,5 +250,20 @@ public class FeedItemRepository {
 
     private static UUID parseNullableUuid(String value) {
         return value == null ? null : UUID.fromString(value);
+    }
+
+    private enum PlayerItemRole {
+        AUTHOR("author_uuid"),
+        INITIATOR("initiator_uuid");
+
+        private final String column;
+
+        PlayerItemRole(String column) {
+            this.column = column;
+        }
+
+        String column() {
+            return column;
+        }
     }
 }

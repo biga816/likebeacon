@@ -3,6 +3,7 @@ package dev.biga.likebeacon.service;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.OptionalLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -18,6 +19,7 @@ import dev.biga.likebeacon.database.DatabaseWriteExecutor;
 import dev.biga.likebeacon.database.FeedItemRepository;
 import dev.biga.likebeacon.database.ItemStatsRepository;
 import dev.biga.likebeacon.database.PlayerStatsRepository;
+import dev.biga.likebeacon.database.PlayerStatType;
 import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.model.Reaction;
@@ -119,9 +121,11 @@ public final class DirectLikeService {
             sender.sendMessage(messageFactory.error("likebeacon.error.self"));
             return false;
         }
-        if (cooldownService.isOnCooldown(sender.getUniqueId(), target.getUniqueId())) {
-            long remaining = cooldownService.getRemainingSeconds(sender.getUniqueId(), target.getUniqueId());
-            sender.sendMessage(messageFactory.error("likebeacon.error.cooldown", Component.text(remaining)));
+        OptionalLong remaining = cooldownService.remainingSeconds(
+                sender.getUniqueId(), target.getUniqueId());
+        if (remaining.isPresent()) {
+            sender.sendMessage(messageFactory.error(
+                    "likebeacon.error.cooldown", Component.text(remaining.getAsLong())));
             return false;
         }
         return true;
@@ -144,12 +148,15 @@ public final class DirectLikeService {
             itemRepository.save(connection, item);
             reactionRepository.save(connection, initialReaction);
             itemStatsRepository.insertNew(connection, serverId, itemId, now);
-            playerStatsRepository.upsertSentCount(
-                    connection, serverId, request.senderUuid(), request.senderName(), now);
-            playerStatsRepository.upsertReceivedCount(
-                    connection, serverId, request.targetUuid(), request.targetName(), now);
-            playerStatsRepository.upsertReactedCount(
-                    connection, serverId, request.senderUuid(), request.senderName(), now);
+            playerStatsRepository.incrementCount(
+                    connection, PlayerStatType.SENT, serverId,
+                    request.senderUuid(), request.senderName(), now);
+            playerStatsRepository.incrementCount(
+                    connection, PlayerStatType.RECEIVED, serverId,
+                    request.targetUuid(), request.targetName(), now);
+            playerStatsRepository.incrementCount(
+                    connection, PlayerStatType.REACTED, serverId,
+                    request.senderUuid(), request.senderName(), now);
             return true;
         })).whenComplete((created, failure) -> runOnMainThread(() -> {
             pendingChatService.releaseDisplayCode(displayCode);

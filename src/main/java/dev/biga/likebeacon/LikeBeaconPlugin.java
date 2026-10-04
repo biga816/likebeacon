@@ -88,7 +88,8 @@ public class LikeBeaconPlugin extends JavaPlugin {
         ItemStatsRepository itemStatsRepo = new ItemStatsRepository(databaseManager);
 
         // 6. Initialize services
-        CooldownService cooldownService = new CooldownService(getConfig());
+        CooldownService cooldownService = new CooldownService(
+                getConfig().getInt("limits.pairCooldownSeconds", 60));
         RecentService recentService = new RecentService(getConfig());
         try {
             readExecutor.submit(conn -> {

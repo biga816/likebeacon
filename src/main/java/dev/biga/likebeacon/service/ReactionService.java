@@ -14,6 +14,7 @@ import dev.biga.likebeacon.database.DatabaseWriteExecutor;
 import dev.biga.likebeacon.database.FeedItemRepository;
 import dev.biga.likebeacon.database.ItemStatsRepository;
 import dev.biga.likebeacon.database.PlayerStatsRepository;
+import dev.biga.likebeacon.database.PlayerStatType;
 import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.model.Reaction;
@@ -117,10 +118,10 @@ public final class ReactionService {
             reactionRepository.save(connection, reaction);
             long reactionCount = itemStatsRepository.incrementReactionCount(
                     connection, serverId, item.itemId(), now);
-            playerStatsRepository.upsertReactedCount(
-                    connection, serverId, senderUuid, senderName, now);
-            playerStatsRepository.upsertReceivedCount(
-                    connection, serverId, item.authorUuid(), targetName, now);
+            playerStatsRepository.incrementCount(
+                    connection, PlayerStatType.REACTED, serverId, senderUuid, senderName, now);
+            playerStatsRepository.incrementCount(
+                    connection, PlayerStatType.RECEIVED, serverId, item.authorUuid(), targetName, now);
             return reactionCount;
         })).whenComplete((reactionCount, failure) -> runOnMainThread(() -> {
             Player online = Bukkit.getPlayer(senderUuid);

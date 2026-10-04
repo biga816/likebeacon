@@ -1,6 +1,7 @@
 package dev.biga.likebeacon.service;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -14,6 +15,7 @@ import dev.biga.likebeacon.database.DatabaseWriteExecutor;
 import dev.biga.likebeacon.database.FeedItemRepository;
 import dev.biga.likebeacon.database.ItemStatsRepository;
 import dev.biga.likebeacon.database.PlayerStatsRepository;
+import dev.biga.likebeacon.database.PlayerStatType;
 import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.model.PendingChat;
@@ -63,22 +65,24 @@ public final class ChatPromotionService {
             return;
         }
 
-        PendingChatService.Claim pendingClaim = claim.get();
-        if (!pendingClaim.owner()) {
-            UUID reactorUuid = reactor.getUniqueId();
-            pendingClaim.completion().whenComplete((item, failure) -> runOnMainThread(() -> {
-                Player online = Bukkit.getPlayer(reactorUuid);
-                if (online == null)
-                    return;
-                if (failure != null)
-                    online.sendMessage(messageFactory.error("likebeacon.error.internal"));
-                else
-                    reactToPromotedItem.accept(online, item);
-            }));
-            return;
+        switch (claim.get()) {
+            case PendingChatService.Joined joined -> joinPromotion(
+                    reactor.getUniqueId(), joined.completion(), reactToPromotedItem);
+            case PendingChatService.Owner owner -> promote(reactor, owner.pending());
         }
+    }
 
-        promote(reactor, pendingClaim.pending());
+    private void joinPromotion(UUID reactorUuid, CompletableFuture<FeedItem> completion,
+            BiConsumer<Player, FeedItem> reactToPromotedItem) {
+        completion.whenComplete((item, failure) -> runOnMainThread(() -> {
+            Player online = Bukkit.getPlayer(reactorUuid);
+            if (online == null)
+                return;
+            if (failure != null)
+                online.sendMessage(messageFactory.error("likebeacon.error.internal"));
+            else
+                reactToPromotedItem.accept(online, item);
+        }));
     }
 
     private void promote(Player reactor, PendingChat pending) {
@@ -104,10 +108,11 @@ public final class ChatPromotionService {
                 itemRepository.save(connection, item);
                 reactionRepository.save(connection, reaction);
                 itemStatsRepository.insertNew(connection, serverId, itemId, now);
-                playerStatsRepository.upsertReceivedCount(
-                        connection, serverId, pending.authorUuid(), pending.authorName(), now);
-                playerStatsRepository.upsertReactedCount(
-                        connection, serverId, reactorUuid, reactorName, now);
+                playerStatsRepository.incrementCount(
+                        connection, PlayerStatType.RECEIVED, serverId,
+                        pending.authorUuid(), pending.authorName(), now);
+                playerStatsRepository.incrementCount(
+                        connection, PlayerStatType.REACTED, serverId, reactorUuid, reactorName, now);
             });
             return null;
         }).whenComplete((ignored, failure) -> runOnMainThread(() -> {

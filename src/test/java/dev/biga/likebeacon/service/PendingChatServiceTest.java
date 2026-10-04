@@ -8,7 +8,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,18 +22,18 @@ class PendingChatServiceTest {
         FeedItem promoted = promotedItem("ABCD");
         service.put(pending);
 
-        PendingChatService.Claim owner = service.claim("ABCD").orElseThrow();
-        PendingChatService.Claim joined = service.claim("ABCD").orElseThrow();
+        PendingChatService.Owner owner = assertInstanceOf(
+                PendingChatService.Owner.class, service.claim("ABCD").orElseThrow());
+        PendingChatService.Joined joined = assertInstanceOf(
+                PendingChatService.Joined.class, service.claim("ABCD").orElseThrow());
 
-        assertTrue(owner.owner());
         assertSame(pending, owner.pending());
-        assertFalse(joined.owner());
         service.completePromotion("ABCD", promoted);
         assertSame(promoted, owner.completion().join());
         assertSame(promoted, joined.completion().join());
 
-        PendingChatService.Claim completed = service.claim("ABCD").orElseThrow();
-        assertFalse(completed.owner());
+        PendingChatService.Joined completed = assertInstanceOf(
+                PendingChatService.Joined.class, service.claim("ABCD").orElseThrow());
         assertSame(promoted, completed.completion().join());
     }
 
@@ -41,8 +41,10 @@ class PendingChatServiceTest {
     void failedPromotionCompletesAllJoinedClaimsExceptionally() {
         PendingChatService service = new PendingChatService(3);
         service.put(pending("EFGH"));
-        PendingChatService.Claim owner = service.claim("EFGH").orElseThrow();
-        PendingChatService.Claim joined = service.claim("EFGH").orElseThrow();
+        PendingChatService.Owner owner = assertInstanceOf(
+                PendingChatService.Owner.class, service.claim("EFGH").orElseThrow());
+        PendingChatService.Joined joined = assertInstanceOf(
+                PendingChatService.Joined.class, service.claim("EFGH").orElseThrow());
         IllegalStateException failure = new IllegalStateException("expected");
 
         service.failPromotion("EFGH", failure);
@@ -64,8 +66,12 @@ class PendingChatServiceTest {
         service.put(pending("CCCC"));
 
         assertTrue(service.claim("AAAA").isEmpty());
-        assertEquals("BBBB", service.claim("BBBB").orElseThrow().pending().displayCode());
-        assertEquals("CCCC", service.claim("CCCC").orElseThrow().pending().displayCode());
+        PendingChatService.Owner second = assertInstanceOf(
+                PendingChatService.Owner.class, service.claim("BBBB").orElseThrow());
+        PendingChatService.Owner third = assertInstanceOf(
+                PendingChatService.Owner.class, service.claim("CCCC").orElseThrow());
+        assertEquals("BBBB", second.pending().displayCode());
+        assertEquals("CCCC", third.pending().displayCode());
     }
 
     private static PendingChat pending(String code) {

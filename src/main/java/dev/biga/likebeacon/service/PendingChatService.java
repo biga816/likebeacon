@@ -60,14 +60,14 @@ public class PendingChatService {
     }
 
     /** Atomically claims a pending message or joins an existing promotion. */
-    public synchronized Optional<Claim> claim(String displayCode) {
+    public synchronized Optional<ClaimResult> claim(String displayCode) {
         CompletableFuture<FeedItem> existing = inFlightByCode.get(displayCode);
         if (existing != null) {
-            return Optional.of(new Claim(null, existing, false));
+            return Optional.of(new Joined(existing));
         }
         FeedItem completed = completedByCode.get(displayCode);
         if (completed != null) {
-            return Optional.of(new Claim(null, CompletableFuture.completedFuture(completed), false));
+            return Optional.of(new Joined(CompletableFuture.completedFuture(completed)));
         }
         PendingChat pending = pendingByCode.remove(displayCode);
         if (pending == null) {
@@ -76,7 +76,7 @@ public class PendingChatService {
         order.remove(displayCode);
         CompletableFuture<FeedItem> completion = new CompletableFuture<>();
         inFlightByCode.put(displayCode, completion);
-        return Optional.of(new Claim(pending, completion, true));
+        return Optional.of(new Owner(pending, completion));
     }
 
     public synchronized void completePromotion(String displayCode, FeedItem item) {
@@ -105,6 +105,13 @@ public class PendingChatService {
         return Set.copyOf(result);
     }
 
-    public record Claim(PendingChat pending, CompletableFuture<FeedItem> completion, boolean owner) {
+    public sealed interface ClaimResult permits Owner, Joined {
+        CompletableFuture<FeedItem> completion();
+    }
+
+    public record Owner(PendingChat pending, CompletableFuture<FeedItem> completion) implements ClaimResult {
+    }
+
+    public record Joined(CompletableFuture<FeedItem> completion) implements ClaimResult {
     }
 }

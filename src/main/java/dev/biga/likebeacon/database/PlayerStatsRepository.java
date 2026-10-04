@@ -36,97 +36,27 @@ public class PlayerStatsRepository {
 
     // ── Write methods (transactional, called from DatabaseWriteExecutor) ────────
 
-    /**
-     * Increments {@code sent_count} for the given player and server, creating a
-     * row if none exists.
-     *
-     * @param conn       the connection in the active transaction
-     * @param serverId   the server ID for scoping the record
-     * @param playerUuid the sender's UUID
-     * @param playerName the sender's current display name
-     * @param updatedAt  current timestamp in epoch milliseconds
-     * @throws SQLException if a database error occurs
-     */
-    public void upsertSentCount(Connection conn, String serverId, UUID playerUuid, String playerName, long updatedAt)
-            throws SQLException {
+    /** Increments one enum-limited statistic, creating the player row if needed. */
+    public void incrementCount(Connection conn, PlayerStatType type, String serverId,
+            UUID playerUuid, String playerName, long updatedAt) throws SQLException {
+        String column = type.column();
         String sql = """
                 INSERT INTO player_stats
                     (server_id, player_uuid, player_name, received_count, sent_count, reacted_count, updated_at)
-                VALUES (?, ?, ?, 0, 1, 0, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(server_id, player_uuid) DO UPDATE SET
-                    sent_count   = sent_count + 1,
-                    player_name  = excluded.player_name,
-                    updated_at   = excluded.updated_at
-                """;
+                    %s          = %s + 1,
+                    player_name = excluded.player_name,
+                    updated_at  = excluded.updated_at
+                """.formatted(column, column);
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setString(2, playerUuid.toString());
             ps.setString(3, playerName);
-            ps.setLong(4, updatedAt);
-            ps.executeUpdate();
-        }
-    }
-
-    /**
-     * Increments {@code received_count} for the given player and server, creating
-     * a row if none exists.
-     *
-     * @param conn       the connection in the active transaction
-     * @param serverId   the server ID for scoping the record
-     * @param playerUuid the recipient's UUID
-     * @param playerName the recipient's current display name
-     * @param updatedAt  current timestamp in epoch milliseconds
-     * @throws SQLException if a database error occurs
-     */
-    public void upsertReceivedCount(Connection conn, String serverId, UUID playerUuid, String playerName,
-            long updatedAt)
-            throws SQLException {
-        String sql = """
-                INSERT INTO player_stats
-                    (server_id, player_uuid, player_name, received_count, sent_count, reacted_count, updated_at)
-                VALUES (?, ?, ?, 1, 0, 0, ?)
-                ON CONFLICT(server_id, player_uuid) DO UPDATE SET
-                    received_count = received_count + 1,
-                    player_name    = excluded.player_name,
-                    updated_at     = excluded.updated_at
-                """;
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, serverId);
-            ps.setString(2, playerUuid.toString());
-            ps.setString(3, playerName);
-            ps.setLong(4, updatedAt);
-            ps.executeUpdate();
-        }
-    }
-
-    /**
-     * Increments {@code reacted_count} for the given player and server, creating a
-     * row if none exists.
-     *
-     * @param conn       the connection in the active transaction
-     * @param serverId   the server ID for scoping the record
-     * @param playerUuid the reactor's UUID
-     * @param playerName the reactor's current display name
-     * @param updatedAt  current timestamp in epoch milliseconds
-     * @throws SQLException if a database error occurs
-     */
-    public void upsertReactedCount(Connection conn, String serverId, UUID playerUuid, String playerName,
-            long updatedAt)
-            throws SQLException {
-        String sql = """
-                INSERT INTO player_stats
-                    (server_id, player_uuid, player_name, received_count, sent_count, reacted_count, updated_at)
-                VALUES (?, ?, ?, 0, 0, 1, ?)
-                ON CONFLICT(server_id, player_uuid) DO UPDATE SET
-                    reacted_count = reacted_count + 1,
-                    player_name   = excluded.player_name,
-                    updated_at    = excluded.updated_at
-                """;
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, serverId);
-            ps.setString(2, playerUuid.toString());
-            ps.setString(3, playerName);
-            ps.setLong(4, updatedAt);
+            ps.setInt(4, type.initialReceived());
+            ps.setInt(5, type.initialSent());
+            ps.setInt(6, type.initialReacted());
+            ps.setLong(7, updatedAt);
             ps.executeUpdate();
         }
     }
