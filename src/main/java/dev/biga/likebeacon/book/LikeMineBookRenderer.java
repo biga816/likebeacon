@@ -52,8 +52,10 @@ public class LikeMineBookRenderer {
             PlayerTranslator translator) {
         List<Component> pages = new ArrayList<>();
         pages.add(buildSummaryPage(stats, mostLikedReceived, playerNames, viewerUuid, translator));
-        pages.add(buildReceivedPage(receivedItems, reactionCounts, playerNames, viewerUuid, translator));
-        pages.add(buildSentPage(sentItems, reactionCounts, playerNames, viewerUuid, translator));
+        pages.add(buildItemListPage("likebeacon.book.mine.received_page",
+                receivedItems, reactionCounts, playerNames, viewerUuid, translator));
+        pages.add(buildItemListPage("likebeacon.book.mine.sent_page",
+                sentItems, reactionCounts, playerNames, viewerUuid, translator));
         return pages;
     }
 
@@ -111,37 +113,13 @@ public class LikeMineBookRenderer {
         return b.build();
     }
 
-    private Component buildReceivedPage(List<FeedItem> list,
+    private Component buildItemListPage(String titleKey, List<FeedItem> list,
             Map<String, Long> reactionCounts,
             Map<UUID, String> playerNames,
             UUID viewerUuid,
             PlayerTranslator tr) {
         TextComponent.Builder b = Component.text();
-        b.append(Component.text("⏷" + tr.translate("likebeacon.book.mine.received_page"))
-                .color(NamedTextColor.DARK_GRAY)
-                .decorate(TextDecoration.BOLD));
-
-        if (list.isEmpty()) {
-            b.append(Component.newline());
-            b.append(Component.newline());
-            b.append(Component.text(tr.translate("likebeacon.book.empty")).color(NamedTextColor.GRAY));
-        } else {
-            for (int i = 0; i < list.size(); i++) {
-                b.append(Component.newline());
-                b.append(Component.text((i + 1) + ". ").color(NamedTextColor.DARK_GRAY));
-                appendItemEntry(b, list.get(i), reactionCounts, playerNames, viewerUuid);
-            }
-        }
-        return b.build();
-    }
-
-    private Component buildSentPage(List<FeedItem> list,
-            Map<String, Long> reactionCounts,
-            Map<UUID, String> playerNames,
-            UUID viewerUuid,
-            PlayerTranslator tr) {
-        TextComponent.Builder b = Component.text();
-        b.append(Component.text("⏷" + tr.translate("likebeacon.book.mine.sent_page"))
+        b.append(Component.text("⏷" + tr.translate(titleKey))
                 .color(NamedTextColor.DARK_GRAY)
                 .decorate(TextDecoration.BOLD));
 

@@ -1,31 +1,21 @@
 package dev.biga.likebeacon.command;
 
 import dev.biga.likebeacon.book.LikeBookService;
-import dev.biga.likebeacon.database.ItemStatsRepository;
-import dev.biga.likebeacon.database.ReactionRepository;
-import dev.biga.likebeacon.database.DatabaseReadExecutor;
-import dev.biga.likebeacon.model.FeedItem;
+import dev.biga.likebeacon.service.LikeLogService;
 import dev.biga.likebeacon.service.LikeService;
 import dev.biga.likebeacon.service.RecentService;
-import dev.biga.likebeacon.service.PlayerNameResolver;
 import dev.biga.likebeacon.util.MessageFactory;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Unified handler for the /like command.
@@ -49,32 +39,19 @@ import java.util.logging.Logger;
  */
 public class LikeCommand implements CommandExecutor, TabCompleter {
 
-    private static final Logger log = Logger.getLogger(LikeCommand.class.getName());
-
     private final LikeService likeService;
     private final RecentService recentService;
-    private final ItemStatsRepository itemStatsRepository;
-    private final ReactionRepository reactionRepository;
-    private final DatabaseReadExecutor readExecutor;
+    private final LikeLogService logService;
     private final MessageFactory messageFactory;
     private final LikeBookService bookService;
-    private final Plugin plugin;
-    private final PlayerNameResolver playerNameResolver;
 
-    public LikeCommand(LikeService likeService, RecentService recentService,
-            ItemStatsRepository itemStatsRepository,
-            ReactionRepository reactionRepository, DatabaseReadExecutor readExecutor,
-            MessageFactory messageFactory,
-            LikeBookService bookService, PlayerNameResolver playerNameResolver, Plugin plugin) {
+    public LikeCommand(LikeService likeService, RecentService recentService, LikeLogService logService,
+            MessageFactory messageFactory, LikeBookService bookService) {
         this.likeService = likeService;
         this.recentService = recentService;
-        this.itemStatsRepository = itemStatsRepository;
-        this.reactionRepository = reactionRepository;
-        this.readExecutor = readExecutor;
+        this.logService = logService;
         this.messageFactory = messageFactory;
         this.bookService = bookService;
-        this.plugin = plugin;
-        this.playerNameResolver = playerNameResolver;
     }
 
     @Override
@@ -99,7 +76,7 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
 
         // /like log — recent feed items in chat
         if (first.equalsIgnoreCase("log")) {
-            handleLog(player);
+            logService.show(player);
             return true;
         }
 
@@ -141,59 +118,6 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
         String reason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
         likeService.sendLike(player, target, reason);
         return true;
-    }
-
-    private void handleLog(Player player) {
-        List<FeedItem> recent = recentService.getRecent(5);
-
-        if (recent.isEmpty()) {
-            player.sendMessage(messageFactory.info("likebeacon.command.log.empty"));
-            return;
-        }
-
-        List<String> itemIds = recent.stream().map(FeedItem::itemId).toList();
-        java.util.UUID playerUuid = player.getUniqueId();
-        readExecutor.submit(conn -> new LogData(
-                itemStatsRepository.reactionCountByItemIds(itemIds),
-                reactionRepository.reactedItemIds(itemIds, playerUuid)))
-                .whenComplete((data, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
-            Player online = Bukkit.getPlayer(playerUuid);
-            if (online == null)
-                return;
-            if (failure != null) {
-                log.log(Level.WARNING, "Failed to get reaction data for recent items", failure);
-                online.sendMessage(messageFactory.error("likebeacon.error.internal"));
-                return;
-            }
-            renderLog(online, recent, data.counts(), data.reactedIds());
-        }));
-    }
-
-    private void renderLog(Player player, List<FeedItem> recent, Map<String, Long> countMap,
-            Set<String> reactedIds) {
-        player.sendMessage(messageFactory.info("likebeacon.command.log.title"));
-        for (FeedItem item : recent) {
-            boolean isOwnSend = player.getUniqueId().equals(item.initiatorUuid());
-            Component senderDisplay = item.initiatorUuid() == null ? Component.empty()
-                    : isOwnSend
-                            ? Component.translatable("likebeacon.item.you").color(NamedTextColor.GREEN)
-                            : Component.text(playerNameResolver.resolve(item.initiatorUuid()))
-                                    .color(NamedTextColor.WHITE);
-            boolean isOwnLike = item.authorUuid().equals(player.getUniqueId());
-            Component targetDisplay = isOwnLike
-                    ? Component.translatable("likebeacon.item.you").color(NamedTextColor.GREEN)
-                    : Component.text(playerNameResolver.resolve(item.authorUuid())).color(NamedTextColor.WHITE);
-            int count = countMap.getOrDefault(item.itemId(), 0L).intValue();
-            boolean alreadyReacted = reactedIds.contains(item.itemId());
-            Component msg = messageFactory.buildLogItemMessage(item, senderDisplay, targetDisplay, count,
-                    alreadyReacted, !isOwnLike);
-            player.sendMessage(msg);
-        }
-
-        recentService.updateLastSeen(player.getUniqueId(), recent.get(0).itemId());
-    }
-
-    private record LogData(Map<String, Long> counts, Set<String> reactedIds) {
     }
 
     @Override

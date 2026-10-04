@@ -17,6 +17,7 @@ import dev.biga.likebeacon.service.ChatPromotionService;
 import dev.biga.likebeacon.service.DirectLikeService;
 import dev.biga.likebeacon.service.LikeEffectService;
 import dev.biga.likebeacon.service.LikeNotificationService;
+import dev.biga.likebeacon.service.LikeLogService;
 import dev.biga.likebeacon.service.LikeService;
 import dev.biga.likebeacon.service.RecentService;
 import dev.biga.likebeacon.service.ReactionService;
@@ -142,11 +143,13 @@ public class LikeBeaconPlugin extends JavaPlugin {
         LikeBookService bookService = new LikeBookService(
                 playerStatsRepo, itemStatsRepo, itemRepo, reactionRepo, readExecutor,
                 playerNameResolver, messageFactory, this, serverId);
+        LikeLogService logService = new LikeLogService(
+                recentService, itemStatsRepo, reactionRepo, readExecutor,
+                playerNameResolver, messageFactory, this);
 
         // 8. Register commands
-        LikeCommand likeCommand = new LikeCommand(likeService, recentService,
-                itemStatsRepo, reactionRepo, readExecutor, messageFactory, bookService,
-                playerNameResolver, this);
+        LikeCommand likeCommand = new LikeCommand(
+                likeService, recentService, logService, messageFactory, bookService);
         getCommand("like").setExecutor(likeCommand);
         getCommand("like").setTabCompleter(likeCommand);
 
