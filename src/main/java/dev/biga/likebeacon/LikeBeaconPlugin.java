@@ -17,10 +17,10 @@ import dev.biga.likebeacon.service.ChatPromotionService;
 import dev.biga.likebeacon.service.DirectLikeService;
 import dev.biga.likebeacon.service.LikeEffectService;
 import dev.biga.likebeacon.service.LikeNotificationService;
-import dev.biga.likebeacon.service.LikeNotificationAggregationService;
 import dev.biga.likebeacon.service.LikeService;
 import dev.biga.likebeacon.service.RecentService;
 import dev.biga.likebeacon.service.ReactionService;
+import dev.biga.likebeacon.service.ReactionNotificationCoordinator;
 import dev.biga.likebeacon.service.PendingChatService;
 import dev.biga.likebeacon.service.PlayerNameResolver;
 import dev.biga.likebeacon.util.I18nService;
@@ -44,7 +44,7 @@ public class LikeBeaconPlugin extends JavaPlugin {
     private DatabaseWriteExecutor writeExecutor;
     private DatabaseReadExecutor readExecutor;
     private I18nService i18nService;
-    private LikeNotificationAggregationService notificationAggregationService;
+    private ReactionNotificationCoordinator reactionNotificationCoordinator;
 
     @Override
     public void onEnable() {
@@ -104,11 +104,18 @@ public class LikeBeaconPlugin extends JavaPlugin {
         MessageFactory messageFactory = new MessageFactory(getConfig());
         LikeEffectService effectService = new LikeEffectService(getConfig());
         PlayerNameResolver playerNameResolver = new PlayerNameResolver();
-        notificationAggregationService = new LikeNotificationAggregationService(
-                this, getConfig(), messageFactory, effectService);
-        notificationAggregationService.start();
+        boolean aggregationEnabled = getConfig().getBoolean(
+                "notifications.reactionAggregation.enabled", true);
+        long quietSeconds = Math.max(1L, getConfig().getLong(
+                "notifications.reactionAggregation.quietSeconds", 3L));
+        long maxWaitSeconds = Math.max(quietSeconds, getConfig().getLong(
+                "notifications.reactionAggregation.maxWaitSeconds", 10L));
+        reactionNotificationCoordinator = new ReactionNotificationCoordinator(
+                this, aggregationEnabled, quietSeconds * 1_000L, maxWaitSeconds * 1_000L,
+                messageFactory, effectService);
+        reactionNotificationCoordinator.start();
         LikeNotificationService notificationService = new LikeNotificationService(
-                recentService, messageFactory, effectService, notificationAggregationService);
+                recentService, messageFactory, effectService, reactionNotificationCoordinator);
         PendingChatService pendingChatService = new PendingChatService(
                 getConfig().getInt("chat.pendingBufferSize", 30));
 
@@ -156,8 +163,8 @@ public class LikeBeaconPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (notificationAggregationService != null) {
-            notificationAggregationService.shutdown();
+        if (reactionNotificationCoordinator != null) {
+            reactionNotificationCoordinator.shutdown();
         }
         if (writeExecutor != null) {
             writeExecutor.shutdown();

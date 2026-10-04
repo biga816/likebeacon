@@ -19,14 +19,14 @@ public final class LikeNotificationService {
     private final RecentService recentService;
     private final MessageFactory messageFactory;
     private final LikeEffectService effectService;
-    private final LikeNotificationAggregationService aggregationService;
+    private final ReactionNotificationCoordinator reactionNotificationCoordinator;
 
     public LikeNotificationService(RecentService recentService, MessageFactory messageFactory,
-            LikeEffectService effectService, LikeNotificationAggregationService aggregationService) {
+            LikeEffectService effectService, ReactionNotificationCoordinator reactionNotificationCoordinator) {
         this.recentService = recentService;
         this.messageFactory = messageFactory;
         this.effectService = effectService;
-        this.aggregationService = aggregationService;
+        this.reactionNotificationCoordinator = reactionNotificationCoordinator;
     }
 
     public void notifyDirectLike(UUID senderUuid, String senderName, UUID targetUuid, String targetName,
@@ -84,9 +84,10 @@ public final class LikeNotificationService {
 
         recentService.updateLastSeen(reactorUuid, item.itemId());
         if (aggregateRecipient) {
-            aggregationService.enqueue(reactorName, item, initiatorName, reactionCount);
+            reactionNotificationCoordinator.enqueue(reactorName, item, initiatorName, reactionCount);
         } else {
-            aggregationService.notifyImmediately(reactorName, item, initiatorName, reactionCount);
+            reactionNotificationCoordinator.notifyImmediately(
+                    reactorName, item, initiatorName, reactionCount);
         }
     }
 
