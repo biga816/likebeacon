@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.chat;
 
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.model.PendingChat;

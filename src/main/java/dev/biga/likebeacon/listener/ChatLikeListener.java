@@ -2,8 +2,8 @@ package dev.biga.likebeacon.listener;
 
 import dev.biga.likebeacon.model.PendingChat;
 import dev.biga.likebeacon.database.DatabaseReadExecutor;
-import dev.biga.likebeacon.service.ChatLikeEligibilityService;
-import dev.biga.likebeacon.service.PendingChatService;
+import dev.biga.likebeacon.service.chat.ChatLikeEligibilityService;
+import dev.biga.likebeacon.service.chat.PendingChatService;
 import dev.biga.likebeacon.util.DisplayCodeGenerator;
 import dev.biga.likebeacon.util.MessageFactory;
 import io.papermc.paper.chat.ChatRenderer;

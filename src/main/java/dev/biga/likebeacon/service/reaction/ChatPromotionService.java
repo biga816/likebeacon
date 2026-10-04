@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.reaction;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -20,6 +20,9 @@ import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.model.PendingChat;
 import dev.biga.likebeacon.model.Reaction;
+import dev.biga.likebeacon.service.chat.PendingChatService;
+import dev.biga.likebeacon.service.notification.LikeNotificationService;
+import dev.biga.likebeacon.service.support.AsyncFailures;
 import dev.biga.likebeacon.util.MessageFactory;
 
 /** Claims pending chat messages and atomically promotes their first reaction. */

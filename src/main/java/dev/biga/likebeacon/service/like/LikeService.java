@@ -1,6 +1,8 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.like;
 
 import org.bukkit.entity.Player;
+
+import dev.biga.likebeacon.service.reaction.ReactionService;
 
 /** Public facade used by command handlers for Like-related use cases. */
 public final class LikeService {

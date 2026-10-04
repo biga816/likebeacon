@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.notification;
 
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;

@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.notification;
 
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.model.FeedItemType;
+import dev.biga.likebeacon.service.feed.RecentService;
 import dev.biga.likebeacon.util.MessageFactory;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;

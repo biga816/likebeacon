@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.notification;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;

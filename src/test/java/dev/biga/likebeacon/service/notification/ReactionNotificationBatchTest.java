@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.notification;
 
 import dev.biga.likebeacon.model.FeedItem;
 import org.junit.jupiter.api.Test;

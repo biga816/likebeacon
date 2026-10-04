@@ -26,7 +26,7 @@ import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.model.ItemRankingEntry;
 import dev.biga.likebeacon.model.PlayerStats;
-import dev.biga.likebeacon.service.PlayerNameResolver;
+import dev.biga.likebeacon.service.support.PlayerNameResolver;
 import dev.biga.likebeacon.util.MessageFactory;
 import dev.biga.likebeacon.util.PlayerTranslator;
 import net.kyori.adventure.text.Component;

@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.feed;
 
 import java.util.List;
 import java.util.Map;
@@ -15,6 +15,7 @@ import dev.biga.likebeacon.database.DatabaseReadExecutor;
 import dev.biga.likebeacon.database.ItemStatsRepository;
 import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.model.FeedItem;
+import dev.biga.likebeacon.service.support.PlayerNameResolver;
 import dev.biga.likebeacon.util.MessageFactory;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;

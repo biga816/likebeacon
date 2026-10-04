@@ -1,9 +1,9 @@
 package dev.biga.likebeacon.command;
 
 import dev.biga.likebeacon.book.LikeBookService;
-import dev.biga.likebeacon.service.LikeLogService;
-import dev.biga.likebeacon.service.LikeService;
-import dev.biga.likebeacon.service.RecentService;
+import dev.biga.likebeacon.service.feed.LikeLogService;
+import dev.biga.likebeacon.service.feed.RecentService;
+import dev.biga.likebeacon.service.like.LikeService;
 import dev.biga.likebeacon.util.MessageFactory;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;

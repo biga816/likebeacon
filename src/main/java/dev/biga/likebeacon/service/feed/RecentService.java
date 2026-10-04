@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.feed;
 
 import dev.biga.likebeacon.database.FeedItemRepository;
 import dev.biga.likebeacon.model.FeedItem;

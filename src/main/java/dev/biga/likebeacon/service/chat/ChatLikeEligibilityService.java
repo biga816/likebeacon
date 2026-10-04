@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.chat;
 
 /** Isolates chat eligibility policy for future channel-plugin integrations. */
 public class ChatLikeEligibilityService {

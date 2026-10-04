@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.like;
 
 import java.util.OptionalLong;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package dev.biga.likebeacon.service;
+package dev.biga.likebeacon.service.notification;
 
 @FunctionalInterface
 interface ReactionNotificationSink {
