@@ -3,6 +3,7 @@ package dev.biga.likebeacon.book;
 import dev.biga.likebeacon.model.ItemRankingEntry;
 import dev.biga.likebeacon.model.PlayerStats;
 import dev.biga.likebeacon.model.FeedItem;
+import dev.biga.likebeacon.model.FeedItemType;
 import dev.biga.likebeacon.util.PlayerTranslator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -35,6 +36,7 @@ public class LikeMineBookRenderer {
      * @param receivedItems     recent items where this player is the target
      * @param sentItems         recent items where this player is the sender
      * @param reactionCounts    map of itemId → reaction count
+     * @param playerNames       pre-resolved names keyed by participant UUID
      * @param viewerUuid        UUID of the player viewing the book
      * @param translator        locale-bound translator for the viewing player
      * @return list of page components (3 pages)
@@ -45,12 +47,13 @@ public class LikeMineBookRenderer {
             List<FeedItem> receivedItems,
             List<FeedItem> sentItems,
             Map<String, Long> reactionCounts,
+            Map<UUID, String> playerNames,
             UUID viewerUuid,
             PlayerTranslator translator) {
         List<Component> pages = new ArrayList<>();
-        pages.add(buildSummaryPage(stats, mostLikedReceived, viewerUuid, translator));
-        pages.add(buildReceivedPage(receivedItems, reactionCounts, viewerUuid, translator));
-        pages.add(buildSentPage(sentItems, reactionCounts, viewerUuid, translator));
+        pages.add(buildSummaryPage(stats, mostLikedReceived, playerNames, viewerUuid, translator));
+        pages.add(buildReceivedPage(receivedItems, reactionCounts, playerNames, viewerUuid, translator));
+        pages.add(buildSentPage(sentItems, reactionCounts, playerNames, viewerUuid, translator));
         return pages;
     }
 
@@ -58,6 +61,7 @@ public class LikeMineBookRenderer {
 
     private Component buildSummaryPage(PlayerStats stats,
             List<ItemRankingEntry> mostLiked,
+            Map<UUID, String> playerNames,
             UUID viewerUuid,
             PlayerTranslator tr) {
         TextComponent.Builder b = Component.text();
@@ -101,7 +105,7 @@ public class LikeMineBookRenderer {
             for (int i = 0; i < mostLiked.size(); i++) {
                 b.append(Component.newline());
                 b.append(Component.text((i + 1) + ". ").color(NamedTextColor.DARK_GRAY));
-                appendRankingEntry(b, mostLiked.get(i), viewerUuid);
+                appendRankingEntry(b, mostLiked.get(i), playerNames, viewerUuid);
             }
         }
         return b.build();
@@ -109,6 +113,7 @@ public class LikeMineBookRenderer {
 
     private Component buildReceivedPage(List<FeedItem> list,
             Map<String, Long> reactionCounts,
+            Map<UUID, String> playerNames,
             UUID viewerUuid,
             PlayerTranslator tr) {
         TextComponent.Builder b = Component.text();
@@ -124,7 +129,7 @@ public class LikeMineBookRenderer {
             for (int i = 0; i < list.size(); i++) {
                 b.append(Component.newline());
                 b.append(Component.text((i + 1) + ". ").color(NamedTextColor.DARK_GRAY));
-                appendItemEntry(b, list.get(i), reactionCounts, viewerUuid);
+                appendItemEntry(b, list.get(i), reactionCounts, playerNames, viewerUuid);
             }
         }
         return b.build();
@@ -132,6 +137,7 @@ public class LikeMineBookRenderer {
 
     private Component buildSentPage(List<FeedItem> list,
             Map<String, Long> reactionCounts,
+            Map<UUID, String> playerNames,
             UUID viewerUuid,
             PlayerTranslator tr) {
         TextComponent.Builder b = Component.text();
@@ -147,7 +153,7 @@ public class LikeMineBookRenderer {
             for (int i = 0; i < list.size(); i++) {
                 b.append(Component.newline());
                 b.append(Component.text((i + 1) + ". ").color(NamedTextColor.DARK_GRAY));
-                appendItemEntry(b, list.get(i), reactionCounts, viewerUuid);
+                appendItemEntry(b, list.get(i), reactionCounts, playerNames, viewerUuid);
             }
         }
         return b.build();
@@ -156,23 +162,25 @@ public class LikeMineBookRenderer {
     // ── Shared helpers ────────────────────────────────────────────────────────
 
     private void appendItemEntry(TextComponent.Builder b, FeedItem bc,
-            Map<String, Long> reactionCounts, UUID viewerUuid) {
+            Map<String, Long> reactionCounts, Map<UUID, String> playerNames, UUID viewerUuid) {
         long count = reactionCounts.getOrDefault(bc.itemId(), 0L);
-        appendEntry(b, bc.itemType(), bc.initiatorUuid(), bc.authorUuid(), bc.bodyText(), count,
-                bc.createdAt(), viewerUuid);
+        appendEntry(b, bc.type(), bc.initiatorUuid(), bc.authorUuid(), bc.bodyText(), count,
+                bc.createdAt(), playerNames, viewerUuid);
     }
 
-    private void appendRankingEntry(TextComponent.Builder b, ItemRankingEntry entry, UUID viewerUuid) {
-        appendEntry(b, entry.itemType(), entry.initiatorUuid(), entry.authorUuid(), entry.bodyText(),
-                entry.reactionCount(), entry.createdAt(), viewerUuid);
+    private void appendRankingEntry(TextComponent.Builder b, ItemRankingEntry entry,
+            Map<UUID, String> playerNames, UUID viewerUuid) {
+        appendEntry(b, entry.type(), entry.initiatorUuid(), entry.authorUuid(), entry.bodyText(),
+                entry.reactionCount(), entry.createdAt(), playerNames, viewerUuid);
     }
 
-    private void appendEntry(TextComponent.Builder b, String itemType, UUID initiatorUuid, UUID authorUuid,
-            String bodyText, long count, long createdAt, UUID viewerUuid) {
+    private void appendEntry(TextComponent.Builder b, FeedItemType type, UUID initiatorUuid, UUID authorUuid,
+            String bodyText, long count, long createdAt, Map<UUID, String> playerNames, UUID viewerUuid) {
         String reason = BookComponents.truncateReason(bodyText);
 
         b.append(BookComponents.buildItemParticipants(
-                itemType, initiatorUuid, authorUuid, viewerUuid,
+                type, initiatorUuid, playerNames.get(initiatorUuid),
+                authorUuid, playerNames.get(authorUuid), viewerUuid,
                 BookComponents.participantLayoutForNumberedItem(count)));
         b.append(Component.text("♥" + BookComponents.formatReactionCount(count) + " ")
                 .color(NamedTextColor.RED));

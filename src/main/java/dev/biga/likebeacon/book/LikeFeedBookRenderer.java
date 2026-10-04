@@ -40,6 +40,7 @@ public class LikeFeedBookRenderer {
          * @param items          recent items, newest first
          * @param reactionCounts map of itemId → reaction count
          * @param reactedItems   item IDs the viewer has already reacted to
+         * @param playerNames    pre-resolved names keyed by participant UUID
          * @param viewerUuid     UUID of the player opening the book
          * @param itemsPerPage   number of entries per book page
          * @param tr             locale-bound translator for the viewing player
@@ -49,6 +50,7 @@ public class LikeFeedBookRenderer {
                         List<FeedItem> items,
                         Map<String, Long> reactionCounts,
                         Set<String> reactedItems,
+                        Map<UUID, String> playerNames,
                         UUID viewerUuid,
                         int itemsPerPage,
                         PlayerTranslator tr) {
@@ -102,7 +104,8 @@ public class LikeFeedBookRenderer {
                                 // Line 2: sender→target [♡count]
                                 b.append(Component.text(" "));
                                 b.append(BookComponents.buildItemParticipants(
-                                                bc.itemType(), bc.initiatorUuid(), bc.authorUuid(), viewerUuid,
+                                                bc.type(), bc.initiatorUuid(), playerNames.get(bc.initiatorUuid()),
+                                                bc.authorUuid(), playerNames.get(bc.authorUuid()), viewerUuid,
                                                 BookComponents.ParticipantLayout.STANDARD));
                                 b.append(BookComponents.buildClickableHeart(code, count, alreadyReacted, isViewer, tr));
                                 b.append(Component.newline());

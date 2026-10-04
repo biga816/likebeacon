@@ -1,13 +1,12 @@
 package dev.biga.likebeacon.book;
 
+import dev.biga.likebeacon.model.FeedItemType;
 import dev.biga.likebeacon.util.PlayerTranslator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -122,20 +121,6 @@ class BookComponents {
     }
 
     /**
-     * Resolves a player's display name from their UUID.
-     * Falls back to the first 8 characters of the UUID string if unknown.
-     */
-    static String resolveName(UUID uuid) {
-        if (uuid == null)
-            return "";
-        Player online = Bukkit.getPlayer(uuid);
-        if (online != null)
-            return online.getName();
-        String name = Bukkit.getOfflinePlayer(uuid).getName();
-        return name != null ? name : uuid.toString().substring(0, 8);
-    }
-
-    /**
      * Returns {@link NamedTextColor#GREEN} if {@code uuid} matches
      * {@code viewerUuid}, otherwise {@link NamedTextColor#BLACK}.
      */
@@ -149,19 +134,21 @@ class BookComponents {
      * The returned component always includes one trailing space.
      */
     static Component buildItemParticipants(
-            String itemType,
+            FeedItemType type,
             UUID initiatorUuid,
+            String initiatorName,
             UUID authorUuid,
+            String authorName,
             UUID viewerUuid,
             ParticipantLayout layout) {
-        if ("CHAT".equals(itemType)) {
-            String authorName = truncateName(resolveName(authorUuid), layout.chatNameLength);
-            return Component.text(authorName + " ").color(nameColor(authorUuid, viewerUuid));
+        if (type == FeedItemType.CHAT) {
+            String displayedAuthor = truncateName(authorName, layout.chatNameLength);
+            return Component.text(displayedAuthor + " ").color(nameColor(authorUuid, viewerUuid));
         }
 
         UUID senderUuid = initiatorUuid != null ? initiatorUuid : authorUuid;
-        String senderName = truncateName(resolveName(senderUuid), layout.directNameLength);
-        String targetName = truncateName(resolveName(authorUuid), layout.directNameLength);
+        String senderName = truncateName(initiatorName, layout.directNameLength);
+        String targetName = truncateName(authorName, layout.directNameLength);
         return buildSenderArrowTarget(
                 senderName, nameColor(senderUuid, viewerUuid),
                 targetName, nameColor(authorUuid, viewerUuid));

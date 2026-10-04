@@ -1,6 +1,7 @@
 package dev.biga.likebeacon.database;
 
 import dev.biga.likebeacon.model.FeedItem;
+import dev.biga.likebeacon.model.FeedItemType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -46,7 +47,7 @@ public class FeedItemRepository {
             ps.setString(2, item.serverId());
             ps.setString(3, item.displayCode());
             ps.setLong(4, item.createdAt());
-            ps.setString(5, item.itemType());
+            ps.setString(5, item.type().databaseValue());
             ps.setString(6, item.authorUuid().toString());
             setNullableUuid(ps, 7, item.initiatorUuid());
             ps.setString(8, item.bodyText());
@@ -235,7 +236,7 @@ public class FeedItemRepository {
                 rs.getString("server_id"),
                 rs.getString("display_code"),
                 rs.getLong("created_at"),
-                rs.getString("item_type"),
+                FeedItemType.fromDatabaseValue(rs.getString("item_type")),
                 UUID.fromString(rs.getString("author_uuid")),
                 parseNullableUuid(rs.getString("initiator_uuid")),
                 rs.getString("body_text"),

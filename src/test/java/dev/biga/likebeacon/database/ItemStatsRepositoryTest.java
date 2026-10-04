@@ -52,14 +52,12 @@ class ItemStatsRepositoryTest {
     }
 
     private static FeedItem item(String itemId) {
-        return new FeedItem(
+        return FeedItem.chat(
                 itemId,
                 "test",
                 "ABCD",
                 1L,
-                "CHAT",
                 UUID.fromString("00000000-0000-0000-0000-000000000001"),
-                null,
                 "body",
                 null,
                 null,

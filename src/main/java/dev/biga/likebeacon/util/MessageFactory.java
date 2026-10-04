@@ -1,6 +1,7 @@
 package dev.biga.likebeacon.util;
 
 import dev.biga.likebeacon.model.FeedItem;
+import dev.biga.likebeacon.model.FeedItemType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.ComponentLike;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -111,7 +112,7 @@ public class MessageFactory {
     }
 
     private Component buildItemBody(FeedItem item, Component senderDisplay, Component authorDisplay) {
-        if ("CHAT".equals(item.itemType())) {
+        if (item.type() == FeedItemType.CHAT) {
             return Component.translatable("likebeacon.feed.chat.format",
                     authorDisplay,
                     Component.text(item.bodyText()).color(NamedTextColor.WHITE));

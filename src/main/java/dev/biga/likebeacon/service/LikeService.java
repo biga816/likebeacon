@@ -9,6 +9,7 @@ import dev.biga.likebeacon.database.DatabaseWriteExecutor;
 import dev.biga.likebeacon.database.ReactionRepository;
 import dev.biga.likebeacon.database.PlayerStatsRepository;
 import dev.biga.likebeacon.model.FeedItem;
+import dev.biga.likebeacon.model.FeedItemType;
 import dev.biga.likebeacon.model.Reaction;
 import dev.biga.likebeacon.model.PendingChat;
 import dev.biga.likebeacon.util.DisplayCodeGenerator;
@@ -58,6 +59,7 @@ public class LikeService {
     private final MessageFactory messageFactory;
     private final LikeEffectService effectService;
     private final LikeNotificationAggregationService notificationAggregationService;
+    private final PlayerNameResolver playerNameResolver;
     private final FileConfiguration config;
     private final Plugin plugin;
     private final String serverId;
@@ -81,6 +83,7 @@ public class LikeService {
             MessageFactory messageFactory,
             LikeEffectService effectService,
             LikeNotificationAggregationService notificationAggregationService,
+            PlayerNameResolver playerNameResolver,
             FileConfiguration config,
             Plugin plugin,
             String serverId) {
@@ -99,6 +102,7 @@ public class LikeService {
         this.messageFactory = messageFactory;
         this.effectService = effectService;
         this.notificationAggregationService = notificationAggregationService;
+        this.playerNameResolver = playerNameResolver;
         this.config = config;
         this.plugin = plugin;
         this.serverId = serverId;
@@ -182,7 +186,7 @@ public class LikeService {
             String displayCode) {
         String itemId = UUID.randomUUID().toString();
         long now = System.currentTimeMillis();
-        FeedItem item = new FeedItem(itemId, serverId, displayCode, now, "DIRECT",
+        FeedItem item = FeedItem.direct(itemId, serverId, displayCode, now,
                 authorUuid, senderUuid, reason, world, x, y, z);
         Reaction initialReaction = new Reaction(UUID.randomUUID().toString(), serverId, now,
                 itemId, senderUuid, authorUuid, "LIKE");
@@ -321,8 +325,8 @@ public class LikeService {
         String reactorName = reactor.getName();
         String itemId = UUID.randomUUID().toString();
         long now = System.currentTimeMillis();
-        FeedItem item = new FeedItem(itemId, serverId, pending.displayCode(), pending.createdAt(), "CHAT",
-                pending.authorUuid(), null, pending.bodyText(), pending.world(), pending.x(), pending.y(), pending.z());
+        FeedItem item = FeedItem.chat(itemId, serverId, pending.displayCode(), pending.createdAt(),
+                pending.authorUuid(), pending.bodyText(), pending.world(), pending.x(), pending.y(), pending.z());
         Reaction reaction = new Reaction(UUID.randomUUID().toString(), serverId, now, itemId,
                 reactorUuid, pending.authorUuid(), "LIKE");
 
@@ -402,10 +406,10 @@ public class LikeService {
         UUID senderUuid = sender.getUniqueId();
         String senderName = sender.getName();
         // Resolve target name on main thread (may call Bukkit API)
-        String targetName = resolvePlayerName(item.authorUuid());
+        String targetName = playerNameResolver.resolve(item.authorUuid());
         String initiatorName = item.initiatorUuid() == null
                 ? null
-                : resolvePlayerName(item.initiatorUuid());
+                : playerNameResolver.resolve(item.initiatorUuid());
 
         String reactionId = UUID.randomUUID().toString();
         long now = System.currentTimeMillis();
@@ -460,7 +464,7 @@ public class LikeService {
         Component targetDisplay = Component.text(targetName).color(NamedTextColor.WHITE);
         Component bodyDisplay = Component.text(item.bodyText()).color(NamedTextColor.WHITE);
 
-        if ("CHAT".equals(item.itemType())) {
+        if (item.type() == FeedItemType.CHAT) {
             if (reactorOnline != null) {
                 reactorOnline.sendMessage(messageFactory.success(
                         "likebeacon.reaction.chat.sent",
@@ -486,18 +490,6 @@ public class LikeService {
             notificationAggregationService.notifyImmediately(
                     reactorName, item, initiatorName, reactionCount);
         }
-    }
-
-    /**
-     * Resolves a player's display name from UUID; must be called on the main
-     * thread.
-     */
-    private String resolvePlayerName(UUID uuid) {
-        Player online = Bukkit.getPlayer(uuid);
-        if (online != null)
-            return online.getName();
-        String name = Bukkit.getOfflinePlayer(uuid).getName();
-        return name != null ? name : uuid.toString();
     }
 
     /** Unwraps a {@link CompletionException} to its root cause. */

@@ -10,6 +10,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.ToLongFunction;
@@ -37,6 +38,7 @@ public class LikeRankingBookRenderer {
          * @param received   players ranked by received count
          * @param sent       players ranked by sent count
          * @param popular    items ranked by reaction count
+         * @param playerNames pre-resolved names keyed by participant UUID
          * @param translator locale-bound translator for the viewing player
          * @return list of page components (3 pages)
          */
@@ -46,11 +48,12 @@ public class LikeRankingBookRenderer {
                         List<ItemRankingEntry> popular,
                         UUID viewerUuid,
                         Set<String> reactedItemIds,
+                        Map<UUID, String> playerNames,
                         PlayerTranslator translator) {
                 List<Component> pages = new ArrayList<>();
                 pages.add(buildReceivedPage(received, translator));
                 pages.add(buildSentPage(sent, translator));
-                pages.add(buildPopularPage(popular, viewerUuid, reactedItemIds, translator));
+                pages.add(buildPopularPage(popular, viewerUuid, reactedItemIds, playerNames, translator));
                 return pages;
         }
 
@@ -80,7 +83,8 @@ public class LikeRankingBookRenderer {
         }
 
         private Component buildPopularPage(List<ItemRankingEntry> list, UUID viewerUuid,
-                        Set<String> reactedItemIds, PlayerTranslator tr) {
+                        Set<String> reactedItemIds, Map<UUID, String> playerNames,
+                        PlayerTranslator tr) {
                 TextComponent.Builder b = Component.text();
                 b.append(Component.text("⏷" + tr.translate("likebeacon.book.ranking.popular"))
                                 .color(NamedTextColor.DARK_GRAY)
@@ -105,7 +109,9 @@ public class LikeRankingBookRenderer {
                                 b.append(Component.text((i + 1) + ". ")
                                                 .color(NamedTextColor.DARK_GRAY));
                                 b.append(BookComponents.buildItemParticipants(
-                                                entry.itemType(), entry.initiatorUuid(), entry.authorUuid(),
+                                                entry.type(), entry.initiatorUuid(),
+                                                playerNames.get(entry.initiatorUuid()), entry.authorUuid(),
+                                                playerNames.get(entry.authorUuid()),
                                                 viewerUuid, BookComponents.participantLayoutForNumberedItem(
                                                                 entry.reactionCount())));
                                 b.append(BookComponents.buildClickableHeart(code, entry.reactionCount(), alreadyReacted,

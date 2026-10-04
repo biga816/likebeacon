@@ -45,10 +45,10 @@ class ReactionNotificationBatchTest {
     }
 
     private static ReactionNotificationBatch batch(long now) {
-        FeedItem item = new FeedItem(
-                "item", "test", "ABCD", 1L, "CHAT",
+        FeedItem item = FeedItem.chat(
+                "item", "test", "ABCD", 1L,
                 UUID.fromString("00000000-0000-0000-0000-000000000001"),
-                null, "body", null, null, null, null);
+                "body", null, null, null, null);
         return new ReactionNotificationBatch("first-reactor", item, null, 1L, now);
     }
 }

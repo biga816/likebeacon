@@ -8,6 +8,7 @@ import dev.biga.likebeacon.database.PlayerStatsRepository;
 import dev.biga.likebeacon.model.ItemRankingEntry;
 import dev.biga.likebeacon.model.PlayerStats;
 import dev.biga.likebeacon.model.FeedItem;
+import dev.biga.likebeacon.service.PlayerNameResolver;
 import dev.biga.likebeacon.util.MessageFactory;
 import dev.biga.likebeacon.util.PlayerTranslator;
 import net.kyori.adventure.text.Component;
@@ -27,6 +28,9 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.UUID;
+import java.util.HashMap;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * Orchestrates async DB reads and book-UI opening for
@@ -71,6 +75,7 @@ public class LikeBookService {
     private final JavaPlugin plugin;
     private final String serverId;
     private final DatabaseReadExecutor readExecutor;
+    private final PlayerNameResolver playerNameResolver;
     private final LikeRankingBookRenderer rankingRenderer;
     private final LikeMineBookRenderer mineRenderer;
     private final LikeFeedBookRenderer feedRenderer;
@@ -92,6 +97,7 @@ public class LikeBookService {
             FeedItemRepository itemRepo,
             ReactionRepository reactionRepo,
             DatabaseReadExecutor readExecutor,
+            PlayerNameResolver playerNameResolver,
             MessageFactory messageFactory,
             JavaPlugin plugin,
             String serverId) {
@@ -100,6 +106,7 @@ public class LikeBookService {
         this.itemRepo = itemRepo;
         this.reactionRepo = reactionRepo;
         this.readExecutor = readExecutor;
+        this.playerNameResolver = playerNameResolver;
         this.messageFactory = messageFactory;
         this.plugin = plugin;
         this.serverId = serverId;
@@ -129,8 +136,11 @@ public class LikeBookService {
                 Set<String> reacted = reactionRepo.reactedItemIds(popularIds, playerUuid);
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    Map<UUID, String> playerNames = resolveNames(Stream.concat(
+                            popular.stream().map(ItemRankingEntry::initiatorUuid),
+                            popular.stream().map(ItemRankingEntry::authorUuid)));
                     List<Component> pages = rankingRenderer.buildPages(
-                            received, sent, popular, playerUuid, reacted, tr);
+                            received, sent, popular, playerUuid, reacted, playerNames, tr);
                     openBook(player, tr.translate("likebeacon.book.ranking.title"), pages);
                 });
             } catch (SQLException e) {
@@ -173,8 +183,16 @@ public class LikeBookService {
                 PlayerStats stats = statsOpt.orElse(null);
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    Map<UUID, String> playerNames = resolveNames(Stream.of(
+                            received.stream().map(FeedItem::initiatorUuid),
+                            received.stream().map(FeedItem::authorUuid),
+                            sent.stream().map(FeedItem::initiatorUuid),
+                            sent.stream().map(FeedItem::authorUuid),
+                            mostLiked.stream().map(ItemRankingEntry::initiatorUuid),
+                            mostLiked.stream().map(ItemRankingEntry::authorUuid))
+                            .flatMap(stream -> stream));
                     List<Component> pages = mineRenderer.buildPages(stats, mostLiked, received, sent, reactionCounts,
-                            playerUuid, tr);
+                            playerNames, playerUuid, tr);
                     openBook(player, tr.translate("likebeacon.book.mine.title"), pages);
                 });
             } catch (SQLException e) {
@@ -211,8 +229,11 @@ public class LikeBookService {
                         : reactionRepo.reactedItemIds(ids, playerUuid);
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    Map<UUID, String> playerNames = resolveNames(Stream.concat(
+                            items.stream().map(FeedItem::initiatorUuid),
+                            items.stream().map(FeedItem::authorUuid)));
                     List<Component> pages = feedRenderer.buildPages(
-                            items, reactionCounts, reacted,
+                            items, reactionCounts, reacted, playerNames,
                             playerUuid, FEED_ITEMS_PER_PAGE, tr);
                     openBook(player, tr.translate("likebeacon.command.feed.title"), pages);
                 });
@@ -227,6 +248,14 @@ public class LikeBookService {
     }
 
     // ── Internal ──────────────────────────────────────────────────────────────
+
+    private Map<UUID, String> resolveNames(Stream<UUID> uuids) {
+        Map<UUID, String> names = new HashMap<>();
+        uuids.filter(Objects::nonNull)
+                .distinct()
+                .forEach(uuid -> names.put(uuid, playerNameResolver.resolve(uuid)));
+        return Map.copyOf(names);
+    }
 
     /**
      * Creates a written book item with the given pages and opens it for the player.

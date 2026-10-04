@@ -2,6 +2,7 @@ package dev.biga.likebeacon.database;
 
 import dev.biga.likebeacon.model.ItemRankingEntry;
 import dev.biga.likebeacon.model.ItemStats;
+import dev.biga.likebeacon.model.FeedItemType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -131,7 +132,7 @@ public class ItemStatsRepository {
                             rs.getString("item_id"),
                             rs.getString("display_code"),
                             rs.getLong("created_at"),
-                            rs.getString("item_type"),
+                            FeedItemType.fromDatabaseValue(rs.getString("item_type")),
                             parseNullableUuid(rs.getString("initiator_uuid")),
                             UUID.fromString(rs.getString("author_uuid")),
                             rs.getString("body_text"),
@@ -210,7 +211,7 @@ public class ItemStatsRepository {
                             rs.getString("item_id"),
                             rs.getString("display_code"),
                             rs.getLong("created_at"),
-                            rs.getString("item_type"),
+                            FeedItemType.fromDatabaseValue(rs.getString("item_type")),
                             parseNullableUuid(rs.getString("initiator_uuid")),
                             UUID.fromString(rs.getString("author_uuid")),
                             rs.getString("body_text"),

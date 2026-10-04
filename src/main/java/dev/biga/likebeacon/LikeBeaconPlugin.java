@@ -18,6 +18,7 @@ import dev.biga.likebeacon.service.LikeNotificationAggregationService;
 import dev.biga.likebeacon.service.LikeService;
 import dev.biga.likebeacon.service.RecentService;
 import dev.biga.likebeacon.service.PendingChatService;
+import dev.biga.likebeacon.service.PlayerNameResolver;
 import dev.biga.likebeacon.util.I18nService;
 import dev.biga.likebeacon.util.MessageFactory;
 import dev.biga.likebeacon.util.DisplayCodeGenerator;
@@ -98,6 +99,7 @@ public class LikeBeaconPlugin extends JavaPlugin {
         DisplayCodeGenerator displayCodeGen = new DisplayCodeGenerator(itemRepo);
         MessageFactory messageFactory = new MessageFactory(getConfig());
         LikeEffectService effectService = new LikeEffectService(getConfig());
+        PlayerNameResolver playerNameResolver = new PlayerNameResolver();
         notificationAggregationService = new LikeNotificationAggregationService(
                 this, getConfig(), messageFactory, effectService);
         notificationAggregationService.start();
@@ -109,16 +111,18 @@ public class LikeBeaconPlugin extends JavaPlugin {
                 playerStatsRepo, itemStatsRepo,
                 databaseManager, readExecutor, writeExecutor,
                 displayCodeGen, cooldownService, recentService, pendingChatService, messageFactory,
-                effectService, notificationAggregationService, getConfig(), this, serverId);
+                effectService, notificationAggregationService, playerNameResolver,
+                getConfig(), this, serverId);
 
         // 7. Book UI service
         LikeBookService bookService = new LikeBookService(
                 playerStatsRepo, itemStatsRepo, itemRepo, reactionRepo, readExecutor,
-                messageFactory, this, serverId);
+                playerNameResolver, messageFactory, this, serverId);
 
         // 8. Register commands
         LikeCommand likeCommand = new LikeCommand(likeService, recentService,
-                itemStatsRepo, reactionRepo, readExecutor, messageFactory, bookService, this);
+                itemStatsRepo, reactionRepo, readExecutor, messageFactory, bookService,
+                playerNameResolver, this);
         getCommand("like").setExecutor(likeCommand);
         getCommand("like").setTabCompleter(likeCommand);
 

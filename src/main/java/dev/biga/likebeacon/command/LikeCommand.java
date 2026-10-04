@@ -7,6 +7,7 @@ import dev.biga.likebeacon.database.DatabaseReadExecutor;
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.service.LikeService;
 import dev.biga.likebeacon.service.RecentService;
+import dev.biga.likebeacon.service.PlayerNameResolver;
 import dev.biga.likebeacon.util.MessageFactory;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -58,12 +59,13 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
     private final MessageFactory messageFactory;
     private final LikeBookService bookService;
     private final Plugin plugin;
+    private final PlayerNameResolver playerNameResolver;
 
     public LikeCommand(LikeService likeService, RecentService recentService,
             ItemStatsRepository itemStatsRepository,
             ReactionRepository reactionRepository, DatabaseReadExecutor readExecutor,
             MessageFactory messageFactory,
-            LikeBookService bookService, Plugin plugin) {
+            LikeBookService bookService, PlayerNameResolver playerNameResolver, Plugin plugin) {
         this.likeService = likeService;
         this.recentService = recentService;
         this.itemStatsRepository = itemStatsRepository;
@@ -72,6 +74,7 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
         this.messageFactory = messageFactory;
         this.bookService = bookService;
         this.plugin = plugin;
+        this.playerNameResolver = playerNameResolver;
     }
 
     @Override
@@ -174,11 +177,12 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
             Component senderDisplay = item.initiatorUuid() == null ? Component.empty()
                     : isOwnSend
                             ? Component.translatable("likebeacon.item.you").color(NamedTextColor.GREEN)
-                            : Component.text(resolveName(item.initiatorUuid())).color(NamedTextColor.WHITE);
+                            : Component.text(playerNameResolver.resolve(item.initiatorUuid()))
+                                    .color(NamedTextColor.WHITE);
             boolean isOwnLike = item.authorUuid().equals(player.getUniqueId());
             Component targetDisplay = isOwnLike
                     ? Component.translatable("likebeacon.item.you").color(NamedTextColor.GREEN)
-                    : Component.text(resolveName(item.authorUuid())).color(NamedTextColor.WHITE);
+                    : Component.text(playerNameResolver.resolve(item.authorUuid())).color(NamedTextColor.WHITE);
             int count = countMap.getOrDefault(item.itemId(), 0L).intValue();
             boolean alreadyReacted = reactedIds.contains(item.itemId());
             Component msg = messageFactory.buildLogItemMessage(item, senderDisplay, targetDisplay, count,
@@ -190,15 +194,6 @@ public class LikeCommand implements CommandExecutor, TabCompleter {
     }
 
     private record LogData(Map<String, Long> counts, Set<String> reactedIds) {
-    }
-
-    private String resolveName(java.util.UUID uuid) {
-        Player online = Bukkit.getPlayer(uuid);
-        if (online != null) {
-            return online.getName();
-        }
-        String name = Bukkit.getOfflinePlayer(uuid).getName();
-        return name != null ? name : uuid.toString();
     }
 
     @Override

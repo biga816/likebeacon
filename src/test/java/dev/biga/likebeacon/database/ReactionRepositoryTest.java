@@ -40,8 +40,8 @@ class ReactionRepositoryTest {
     void rejectsDuplicateReactorForSameItem() throws Exception {
         UUID authorUuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID reactorUuid = UUID.fromString("00000000-0000-0000-0000-000000000002");
-        FeedItem item = new FeedItem(
-                "duplicate-item", "test", "ABCD", 1L, "CHAT", authorUuid, null,
+        FeedItem item = FeedItem.chat(
+                "duplicate-item", "test", "ABCD", 1L, authorUuid,
                 "body", null, null, null, null);
         databaseManager.executeInTransaction(conn -> {
             feedItemRepository.save(conn, item);

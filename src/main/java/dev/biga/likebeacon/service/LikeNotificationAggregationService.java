@@ -1,6 +1,7 @@
 package dev.biga.likebeacon.service;
 
 import dev.biga.likebeacon.model.FeedItem;
+import dev.biga.likebeacon.model.FeedItemType;
 import dev.biga.likebeacon.util.MessageFactory;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -134,7 +135,7 @@ public final class LikeNotificationAggregationService {
 
     private void sendSingle(Player target, ReactionNotificationBatch batch,
             Component reactorDisplay, Component bodyDisplay, Component totalDisplay) {
-        if ("CHAT".equals(batch.item().itemType())) {
+        if (batch.item().type() == FeedItemType.CHAT) {
             target.sendMessage(messageFactory.notification(
                     "likebeacon.reaction.chat.received",
                     reactorDisplay,
@@ -155,7 +156,7 @@ public final class LikeNotificationAggregationService {
             Component reactorDisplay, Component bodyDisplay, Component totalDisplay) {
         Component othersDisplay = number(batch.newReactionCount() - 1L);
         Component newCountDisplay = number(batch.newReactionCount());
-        if ("CHAT".equals(batch.item().itemType())) {
+        if (batch.item().type() == FeedItemType.CHAT) {
             target.sendMessage(messageFactory.notification(
                     "likebeacon.reaction.chat.received-group",
                     reactorDisplay,
