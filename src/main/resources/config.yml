@@ -12,7 +12,8 @@ reason:
   maxLength: 48
 
 item:
-  prefix: "[LIKE]"
+  # Optional prefix for Like announcements and received notifications.
+  prefix: ""
   # /like log always shows display codes regardless of this setting.
   showDisplayCode: false
 

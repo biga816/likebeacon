@@ -92,7 +92,7 @@ The plugin generates `plugins/LikeBeacon/config.yml` automatically on first run 
 | `limits.pairCooldownSeconds` | `60`      | Cooldown in seconds before the same player can Like the same target again. Resets on server restart.                            |
 | `recent.bufferSize`          | `100`     | Size of the in-memory recent Like buffer loaded from the database on startup.                                                   |
 | `reason.maxLength`           | `48`      | Maximum character length of the Like reason text.                                                                               |
-| `item.prefix`                | `[LIKE]`  | Prefix shown at the start of direct Like announcements and received-Like notifications in chat.                                 |
+| `item.prefix`                | `""`      | Optional prefix shown at the start of direct Like announcements and received-Like notifications. Set to `[LIKE]` to restore the labelled style. |
 | `item.showDisplayCode`       | `false`   | Show display-code labels in regular chat/Like messages and reaction feedback. Clickable controls still work when disabled; `/like log` always shows codes. |
 | `effects.enabled`            | `true`    | Enable or disable recipient particle effects (heart + firework) delivered with Like notifications.                             |
 | `notifications.reactionAggregation.enabled` | `true` | Aggregate recipient notifications for reactions to an existing feed item.                                       |
@@ -132,9 +132,9 @@ Pending chat messages exist only in memory. The first reaction atomically create
 
 ## Notifications
 
-Notifications are sent only after the Like has been stored successfully. The player performing the action receives a confirmation that identifies the target and content. If the recipient is online, they receive a `[LIKE]` notification identifying the player who reacted, the relevant message or Like reason, and—when reacting to a feed item—the total reaction count.
+Notifications are sent only after the Like has been stored successfully. The player performing the action receives a confirmation that identifies the target and content. If the recipient is online, they receive a notification identifying the player who reacted, the relevant message or Like reason, and—when reacting to a feed item—the total reaction count. Set `item.prefix` when these notifications need an explicit label such as `[LIKE]`.
 
-Creating a direct Like is announced server-wide to every online player except the sender and recipient. Chat Likes and additional reactions are private to the player performing the action and the recipient, so they do not repeat the original content for everyone else.
+Creating a direct Like is announced server-wide to every online player except the sender and recipient, using a chat-like format such as `<Alice> Nice build! → Bob  [♡]`. Chat Likes and additional reactions are private to the player performing the action and the recipient, so they do not repeat the original content for everyone else.
 
 The first Like on a chat message is delivered immediately. Recipient notifications for later reactions to an existing feed item are aggregated per item: they are sent after the configured quiet period, or at the maximum wait time if reactions continue. The first reactor's name is shown, followed by the number of other reactors. The reacting players still receive their own success confirmations immediately.
 

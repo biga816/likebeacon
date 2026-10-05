@@ -38,16 +38,16 @@ public class MessageFactory {
      *               {@code item.showDisplayCode}.
      */
     public MessageFactory(FileConfiguration config) {
-        this.prefix = config.getString("item.prefix", "[LIKE]");
+        this.prefix = config.getString("item.prefix", "");
         this.showDisplayCode = config.getBoolean("item.showDisplayCode", false);
     }
 
     /**
-     * Builds a item message for {@code /like log} with an absolute datetime
-     * label inserted between the prefix and the sender name.
+     * Builds an item message for {@code /like log} with an absolute datetime
+     * label before the item body.
      * <p>
      * Format:
-     * {@code [LIKE][yyyy-MM-dd HH:mm] sender → target: "reason"  [♡n]  (#code)}
+     * {@code [yyyy-MM-dd HH:mm] <sender> reason → target  [♡n]  (#code)}
      * </p>
      *
      * @param item           the item data
@@ -98,10 +98,7 @@ public class MessageFactory {
             int reactionCount, boolean alreadyReacted, boolean showReactButton, boolean clickable) {
         String displayCode = item.displayCode();
 
-        Component message = Component.text(prefix)
-                .color(NamedTextColor.AQUA)
-                .append(Component.text(" "))
-                .append(buildItemBody(item, senderDisplay, targetDisplay));
+        Component message = withPrefix(buildItemBody(item, senderDisplay, targetDisplay));
 
         if (!showReactButton) {
             return message;
@@ -115,13 +112,16 @@ public class MessageFactory {
         if (item.type() == FeedItemType.CHAT) {
             return Component.translatable("likebeacon.feed.chat.format",
                     authorDisplay,
-                    Component.text(item.bodyText()).color(NamedTextColor.WHITE));
+                    Component.text(item.bodyText()).color(NamedTextColor.WHITE))
+                    .color(NamedTextColor.WHITE);
         }
 
-        return Component.translatable("likebeacon.feed.chat.format",
-                senderDisplay.append(Component.text(" → ").color(NamedTextColor.RED))
-                        .append(authorDisplay),
-                Component.text(item.bodyText()).color(NamedTextColor.WHITE));
+        return Component.translatable("likebeacon.feed.direct.format",
+                senderDisplay,
+                Component.text(item.bodyText()).color(NamedTextColor.WHITE),
+                Component.text("→").color(NamedTextColor.RED),
+                authorDisplay)
+                .color(NamedTextColor.WHITE);
     }
 
     public Component buildChatLikeSuffix(String displayCode) {
@@ -227,16 +227,24 @@ public class MessageFactory {
     }
 
     /**
-     * Builds a received-Like notification using the configured item prefix.
+     * Builds a received-Like notification with the configured item prefix when
+     * one is present.
      *
      * @param key  the translation key
      * @param args optional translation arguments
-     * @return an aqua-prefixed notification with a green message body
+     * @return a notification with a green message body and an optional aqua prefix
      */
     public Component notification(String key, ComponentLike... args) {
+        return withPrefix(Component.translatable(key, args).color(NamedTextColor.GREEN));
+    }
+
+    private Component withPrefix(Component body) {
+        if (prefix == null || prefix.isBlank()) {
+            return body;
+        }
         return Component.text(prefix).color(NamedTextColor.AQUA)
                 .append(Component.text(" "))
-                .append(Component.translatable(key, args).color(NamedTextColor.GREEN));
+                .append(body);
     }
 
     /**
