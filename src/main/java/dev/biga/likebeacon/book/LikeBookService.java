@@ -164,8 +164,14 @@ public final class LikeBookService {
                                 .color(NamedTextColor.RED));
                         return;
                     }
-                    openBook(player, translator.translate(titleKey),
-                            renderer.render(data, viewerUuid, translator));
+                    try {
+                        openBook(player, translator.translate(titleKey),
+                                renderer.render(data, viewerUuid, translator));
+                    } catch (RuntimeException e) {
+                        log.log(Level.WARNING, "Failed to render " + dataLabel + " for " + playerName, e);
+                        player.sendMessage(Component.text(translator.translate("likebeacon.error.internal"))
+                                .color(NamedTextColor.RED));
+                    }
                 }));
     }
 

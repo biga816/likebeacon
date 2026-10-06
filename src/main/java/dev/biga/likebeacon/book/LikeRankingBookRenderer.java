@@ -109,9 +109,7 @@ public class LikeRankingBookRenderer {
                                 b.append(Component.text((i + 1) + ". ")
                                                 .color(NamedTextColor.DARK_GRAY));
                                 b.append(BookComponents.buildItemParticipants(
-                                                entry.type(), entry.initiatorUuid(),
-                                                playerNames.get(entry.initiatorUuid()), entry.authorUuid(),
-                                                playerNames.get(entry.authorUuid()),
+                                                entry.type(), entry.initiatorUuid(), entry.authorUuid(), playerNames,
                                                 viewerUuid, BookComponents.participantLayoutForNumberedItem(
                                                                 entry.reactionCount())));
                                 b.append(BookComponents.buildClickableHeart(code, entry.reactionCount(), alreadyReacted,

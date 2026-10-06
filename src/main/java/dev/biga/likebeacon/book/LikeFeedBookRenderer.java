@@ -104,8 +104,7 @@ public class LikeFeedBookRenderer {
                                 // Line 2: sender→target [♡count]
                                 b.append(Component.text(" "));
                                 b.append(BookComponents.buildItemParticipants(
-                                                bc.type(), bc.initiatorUuid(), playerNames.get(bc.initiatorUuid()),
-                                                bc.authorUuid(), playerNames.get(bc.authorUuid()), viewerUuid,
+                                                bc.type(), bc.initiatorUuid(), bc.authorUuid(), playerNames, viewerUuid,
                                                 BookComponents.ParticipantLayout.STANDARD));
                                 b.append(BookComponents.buildClickableHeart(code, count, alreadyReacted, isViewer, tr));
                                 b.append(Component.newline());

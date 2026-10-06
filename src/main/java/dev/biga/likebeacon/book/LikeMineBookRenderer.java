@@ -157,8 +157,7 @@ public class LikeMineBookRenderer {
         String reason = BookComponents.truncateReason(bodyText);
 
         b.append(BookComponents.buildItemParticipants(
-                type, initiatorUuid, playerNames.get(initiatorUuid),
-                authorUuid, playerNames.get(authorUuid), viewerUuid,
+                type, initiatorUuid, authorUuid, playerNames, viewerUuid,
                 BookComponents.participantLayoutForNumberedItem(count)));
         b.append(Component.text("♥" + BookComponents.formatReactionCount(count) + " ")
                 .color(NamedTextColor.RED));

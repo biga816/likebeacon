@@ -32,6 +32,7 @@ dependencies {
     implementation("org.xerial:sqlite-jdbc:3.46.0.0")
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("net.kyori:adventure-api:4.20.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

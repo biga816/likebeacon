@@ -11,6 +11,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -136,17 +137,18 @@ class BookComponents {
     static Component buildItemParticipants(
             FeedItemType type,
             UUID initiatorUuid,
-            String initiatorName,
             UUID authorUuid,
-            String authorName,
+            Map<UUID, String> playerNames,
             UUID viewerUuid,
             ParticipantLayout layout) {
+        String authorName = playerNames.get(authorUuid);
         if (type == FeedItemType.CHAT) {
             String displayedAuthor = truncateName(authorName, layout.chatNameLength);
             return Component.text(displayedAuthor + " ").color(nameColor(authorUuid, viewerUuid));
         }
 
         UUID senderUuid = initiatorUuid != null ? initiatorUuid : authorUuid;
+        String initiatorName = initiatorUuid == null ? null : playerNames.get(initiatorUuid);
         String senderName = truncateName(initiatorName, layout.directNameLength);
         String targetName = truncateName(authorName, layout.directNameLength);
         return buildSenderArrowTarget(
