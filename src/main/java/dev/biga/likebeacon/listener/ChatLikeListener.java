@@ -3,6 +3,7 @@ package dev.biga.likebeacon.listener;
 import dev.biga.likebeacon.model.PendingChat;
 import dev.biga.likebeacon.database.DatabaseReadExecutor;
 import dev.biga.likebeacon.service.chat.ChatLikeEligibilityService;
+import dev.biga.likebeacon.service.chat.ChatTextSanitizer;
 import dev.biga.likebeacon.service.chat.PendingChatService;
 import dev.biga.likebeacon.util.DisplayCodeGenerator;
 import dev.biga.likebeacon.util.MessageFactory;
@@ -27,7 +28,7 @@ public class ChatLikeListener implements Listener {
     private final MessageFactory messageFactory;
     private final ChatLikeEligibilityService eligibilityService;
     private final String serverId;
-    private final int maxStoredLength;
+    private final ChatTextSanitizer textSanitizer;
     private final DatabaseReadExecutor readExecutor;
 
     public ChatLikeListener(PendingChatService pendingChatService, DisplayCodeGenerator displayCodeGenerator,
@@ -40,18 +41,18 @@ public class ChatLikeListener implements Listener {
         this.messageFactory = messageFactory;
         this.eligibilityService = eligibilityService;
         this.serverId = serverId;
-        this.maxStoredLength = Math.max(1, maxStoredLength);
+        this.textSanitizer = new ChatTextSanitizer(maxStoredLength);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onChat(AsyncChatEvent event) {
         String plainText = PlainTextComponentSerializer.plainText().serialize(event.message());
-        if (!eligibilityService.isEligible(plainText))
+        String storedText = textSanitizer.sanitize(plainText);
+        if (!eligibilityService.isEligible(storedText))
             return;
 
         UUID authorUuid = event.getPlayer().getUniqueId();
         String authorName = event.getPlayer().getName();
-        String storedText = truncate(plainText, maxStoredLength);
         long createdAt = System.currentTimeMillis();
         PendingChat pending;
         try {
@@ -82,8 +83,4 @@ public class ChatLikeListener implements Listener {
         });
     }
 
-    private static String truncate(String text, int maxLength) {
-        return text.length() <= maxLength ? text
-                : text.substring(0, Math.max(0, maxLength - 1)) + "…";
-    }
 }

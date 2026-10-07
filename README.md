@@ -101,7 +101,7 @@ The plugin generates `plugins/LikeBeacon/config.yml` automatically on first run 
 | `chat.enabled`               | `true`    | Enable or disable chat Likes. When disabled, the plugin does not modify `AsyncChatEvent` renderers.                              |
 | `chat.minLength`             | `4`       | Minimum plain-text message length eligible for a chat Like control. Whitespace-only and shorter messages are ignored.            |
 | `chat.pendingBufferSize`     | `30`      | Number of unpromoted chat messages retained in memory. Old entries are discarded and their display codes become reusable.        |
-| `chat.maxStoredLength`       | `100`     | Maximum plain-text length persisted when a chat message is promoted. Truncated messages end with `…`.                           |
+| `chat.maxStoredLength`       | `100`     | Maximum plain-text length persisted when a chat message is promoted, clamped to 1–100 user-perceived characters. Joined emoji and combining sequences remain intact, line-breaking controls are replaced with spaces, and truncated messages end with `…`. |
 
 **Language** is not a config option. The plugin automatically uses each player's Minecraft client locale. Supported locales: English (`en_US`) and Japanese (`ja_JP`). English is the fallback for all other locales.
 

@@ -32,4 +32,5 @@ chat:
   enabled: true
   minLength: 5
   pendingBufferSize: 30
+  # Clamped to 1-100 user-perceived characters. Line-breaking controls are stored as spaces.
   maxStoredLength: 100
