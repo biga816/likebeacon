@@ -8,12 +8,14 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.translation.GlobalTranslator;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 /**
  * Factory for building chat message components using the Adventure API.
@@ -236,6 +238,32 @@ public class MessageFactory {
      */
     public Component notification(String key, ComponentLike... args) {
         return withPrefix(Component.translatable(key, args).color(NamedTextColor.GREEN));
+    }
+
+    /**
+     * Builds a received-Like notification for a known recipient locale.
+     * Japanese notifications use non-breaking spaces so Minecraft fills the
+     * available chat width instead of wrapping early at spaces in English text.
+     *
+     * @param locale recipient's client locale
+     * @param key    translation key
+     * @param args   optional translation arguments
+     * @return the locale-aware notification
+     */
+    public Component notification(Locale locale, String key, ComponentLike... args) {
+        Component message = withPrefix(Component.translatable(key, args).color(NamedTextColor.GREEN));
+        return applyJapaneseWrapping(message, locale);
+    }
+
+    static Component applyJapaneseWrapping(Component message, Locale locale) {
+        if (!Locale.JAPANESE.getLanguage().equals(locale.getLanguage())) {
+            return message;
+        }
+
+        Component rendered = GlobalTranslator.render(message, locale);
+        return rendered.replaceText(builder -> builder
+                .matchLiteral(" ")
+                .replacement("\u00A0"));
     }
 
     private Component withPrefix(Component body) {

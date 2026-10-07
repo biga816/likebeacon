@@ -56,7 +56,7 @@ public final class LikeNotificationService {
 
         Player target = Bukkit.getPlayer(targetUuid);
         if (target != null) {
-            target.sendMessage(messageFactory.notification(
+            target.sendMessage(messageFactory.notification(target.locale(),
                     "likebeacon.direct.received",
                     senderDisplay,
                     Component.text(item.bodyText()).color(NamedTextColor.WHITE)));

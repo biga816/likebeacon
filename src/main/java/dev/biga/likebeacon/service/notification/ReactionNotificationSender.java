@@ -39,11 +39,11 @@ final class ReactionNotificationSender implements ReactionNotificationSink {
     private void sendSingle(Player target, ReactionNotificationBatch batch,
             Component reactor, Component body, Component total) {
         if (batch.item().type() == FeedItemType.CHAT) {
-            target.sendMessage(messageFactory.notification(
+            target.sendMessage(messageFactory.notification(target.locale(),
                     "likebeacon.reaction.chat.received", reactor, body, total));
             return;
         }
-        target.sendMessage(messageFactory.notification(
+        target.sendMessage(messageFactory.notification(target.locale(),
                 "likebeacon.reaction.direct.received",
                 reactor, initiator(batch), body, total));
     }
@@ -53,12 +53,12 @@ final class ReactionNotificationSender implements ReactionNotificationSink {
         Component others = number(batch.newReactionCount() - 1L);
         Component added = number(batch.newReactionCount());
         if (batch.item().type() == FeedItemType.CHAT) {
-            target.sendMessage(messageFactory.notification(
+            target.sendMessage(messageFactory.notification(target.locale(),
                     "likebeacon.reaction.chat.received-group",
                     reactor, others, body, added, total));
             return;
         }
-        target.sendMessage(messageFactory.notification(
+        target.sendMessage(messageFactory.notification(target.locale(),
                 "likebeacon.reaction.direct.received-group",
                 reactor, others, initiator(batch), body, added, total));
     }
