@@ -29,7 +29,42 @@ LikeBeacon provides a lightweight social system with feeds, rankings, personal s
 
 # Screenshots
 
+## Quick Reactions
+
+The demo shows the main interaction flow: Like an ordinary chat message, send a direct Like with `/like`, and react to either type of feed item by clicking its heart control.
+
 ![LikeBeacon plugin demo](docs/assets/demo.gif)
+
+## Book UI
+
+LikeBeacon's feed, rankings, and personal statistics open in Minecraft's native book UI. Feed entries can include both direct Likes and liked chat messages; available heart controls can be clicked directly from the feed and from the **Popular Likes** ranking page.
+
+### Feed
+
+`/like feed` shows recent direct Likes and liked chat messages together, with
+reaction counts and a heart control where the viewer can react.
+
+
+![Unified Like feed in the Minecraft book UI](docs/assets/book-feed.png)
+
+
+### Rankings
+
+`/like ranking` includes Top Received, Top Givers, and Popular Likes pages. The
+Popular Likes page also shows item-level reaction counts and heart controls.
+
+
+![Popular Likes ranking in the Minecraft book UI](docs/assets/book-ranking1.png)![Popular Likes ranking in the Minecraft book UI](docs/assets/book-ranking2.png)![Popular Likes ranking in the Minecraft book UI](docs/assets/book-ranking3.png)
+
+
+### Personal Statistics
+
+`/like mine` summarizes the viewer's received, sent, and reacted counts, their
+most-liked item, and recent Likes they received or sent.
+
+
+![Personal Like statistics in the Minecraft book UI](docs/assets/book-mine1.png)![Personal Like statistics in the Minecraft book UI](docs/assets/book-mine2.png)![Personal Like statistics in the Minecraft book UI](docs/assets/book-mine3.png)
+
 
 ---
 
