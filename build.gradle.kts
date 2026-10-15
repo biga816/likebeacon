@@ -30,6 +30,7 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
     implementation("org.xerial:sqlite-jdbc:3.46.0.0")
+    implementation("org.bstats:bstats-bukkit:3.2.1")
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("net.kyori:adventure-api:4.20.0")
@@ -56,6 +57,10 @@ tasks.shadowJar {
     archiveBaseName.set("LikeBeacon")
     archiveClassifier.set("")
     mergeServiceFiles()
+    relocate("org.bstats", "dev.biga.likebeacon.lib.bstats")
+    from("THIRD_PARTY_NOTICES.md") {
+        into("META-INF")
+    }
 }
 
 tasks.build {

@@ -27,6 +27,7 @@ import dev.biga.likebeacon.service.support.PlayerNameResolver;
 import dev.biga.likebeacon.util.I18nService;
 import dev.biga.likebeacon.util.MessageFactory;
 import dev.biga.likebeacon.util.DisplayCodeGenerator;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
@@ -41,11 +42,14 @@ import java.util.concurrent.CompletionException;
  */
 public class LikeBeaconPlugin extends JavaPlugin {
 
+    private static final int BSTATS_PLUGIN_ID = 34704;
+
     private DatabaseManager databaseManager;
     private DatabaseWriteExecutor writeExecutor;
     private DatabaseReadExecutor readExecutor;
     private I18nService i18nService;
     private ReactionNotificationCoordinator reactionNotificationCoordinator;
+    private Metrics metrics;
 
     @Override
     public void onEnable() {
@@ -162,11 +166,16 @@ public class LikeBeaconPlugin extends JavaPlugin {
                     getConfig().getInt("chat.maxStoredLength", 100)), this);
         }
 
+        metrics = new Metrics(this, BSTATS_PLUGIN_ID);
+
         getLogger().info("LikeBeacon enabled!");
     }
 
     @Override
     public void onDisable() {
+        if (metrics != null) {
+            metrics.shutdown();
+        }
         if (reactionNotificationCoordinator != null) {
             reactionNotificationCoordinator.shutdown();
         }

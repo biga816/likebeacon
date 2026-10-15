@@ -185,6 +185,14 @@ The unified feed uses these count definitions:
 
 ---
 
+# Anonymous Metrics
+
+LikeBeacon uses [bStats](https://bstats.org/plugin/bukkit/LikeBeacon/34704) to collect anonymous usage statistics such as the plugin version, server software version, Java version, operating system, and player count. This helps guide compatibility and maintenance decisions.
+
+LikeBeacon does not send player names, player UUIDs, chat messages, Like reasons, `server-id` values, or server addresses to bStats. Server administrators can disable bStats globally by setting `enabled: false` in `plugins/bStats/config.yml`. See the [bStats information for server owners](https://bstats.org/docs/server-owners) for details.
+
+---
+
 # Development
 
 ## Requirements
@@ -278,4 +286,4 @@ Bug reports and feature requests are accepted through [GitHub Issues](https://gi
 
 # License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details. The bStats license notice is included in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
