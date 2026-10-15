@@ -2,7 +2,7 @@ name: LikeBeacon
 version: ${version}
 main: dev.biga.likebeacon.LikeBeaconPlugin
 api-version: "1.21"
-description: "Likes, chat reactions, and a social feed for positive communities."
+description: "A Minecraft Paper plugin for sharing appreciation through Likes, chat reactions, and a community feed."
 
 commands:
   like:
