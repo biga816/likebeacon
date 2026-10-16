@@ -1,0 +1,144 @@
+name: Release
+
+run-name: Release v${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, without the v prefix (for example, 1.0.0)
+        required: true
+        type: string
+      draft:
+        description: Create a draft release so its notes can be edited before publishing
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Validate release version
+        id: release
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Releases must be run from the main branch."
+            exit 1
+          fi
+
+          if [[ ! "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version must be a semantic version without the v prefix (for example, 1.0.0)."
+            exit 1
+          fi
+
+          PROJECT_VERSION="$(sed -n 's/^version=//p' gradle.properties)"
+          if [[ -z "$PROJECT_VERSION" ]]; then
+            echo "::error::Could not read the version from gradle.properties."
+            exit 1
+          fi
+
+          if [[ "$EXPECTED_VERSION" != "$PROJECT_VERSION" ]]; then
+            echo "::error::Requested version $EXPECTED_VERSION does not match gradle.properties version $PROJECT_VERSION."
+            exit 1
+          fi
+
+          echo "version=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "jar=build/libs/LikeBeacon-$PROJECT_VERSION.jar" >> "$GITHUB_OUTPUT"
+          echo "plain_jar=build/libs/likebeacon-plugin-$PROJECT_VERSION.jar" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test
+        run: ./gradlew --no-daemon clean build
+
+      - name: Verify build outputs
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          SHADOW_JAR: ${{ steps.release.outputs.jar }}
+          PLAIN_JAR: ${{ steps.release.outputs.plain_jar }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f "$SHADOW_JAR" || {
+            echo "::error::Shadow JAR was not created at $SHADOW_JAR."
+            exit 1
+          }
+          test -f "$PLAIN_JAR" || {
+            echo "::error::Standard JAR was not created at $PLAIN_JAR."
+            exit 1
+          }
+
+          jar --list --file "$SHADOW_JAR" | grep -Fxq "org/sqlite/JDBC.class" || {
+            echo "::error::Shadow JAR does not contain the SQLite JDBC driver."
+            exit 1
+          }
+          unzip -p "$SHADOW_JAR" plugin.yml | grep -Fxq "version: $VERSION" || {
+            echo "::error::plugin.yml does not contain the release version."
+            exit 1
+          }
+
+          jar --list --file "$PLAIN_JAR" | grep -Fxq "org/sqlite/JDBC.class" && {
+            echo "::error::Standard JAR unexpectedly contains the SQLite JDBC driver."
+            exit 1
+          }
+
+          jar_name="$(basename "$SHADOW_JAR")"
+          (
+            cd "$(dirname "$SHADOW_JAR")"
+            sha256sum "$jar_name" > "$jar_name.sha256"
+          )
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          SHADOW_JAR: ${{ steps.release.outputs.jar }}
+          DRAFT: ${{ inputs.draft }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_args=(
+            "$TAG"
+            "$SHADOW_JAR"
+            "$SHADOW_JAR.sha256"
+            --target "$GITHUB_SHA"
+            --title "LikeBeacon $TAG"
+            --generate-notes
+            --fail-on-no-commits
+          )
+
+          if [[ "$DRAFT" == "true" ]]; then
+            release_args+=(--draft)
+          fi
+
+          gh release create "${release_args[@]}"

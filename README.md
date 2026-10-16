@@ -200,6 +200,17 @@ The shaded JAR, including the SQLite JDBC driver, is written to `build/libs/Like
 
 For local testing, `./gradlew deployToTestServer` copies the JAR and a fresh config to `paper-test/plugins/`. Start your Paper 1.21.x test server from that directory and use two Minecraft accounts to exercise multiplayer interactions.
 
+### Release
+
+1. Update `version` in `gradle.properties` and merge the change into `main`.
+2. Confirm that the `CI` workflow succeeds on `main`.
+3. Open **Actions > Release > Run workflow**, select `main`, and enter the same version without the `v` prefix.
+4. For the initial release, enable **Create a draft release**, edit the generated release notes, and publish the draft manually. Later releases can use the default automatic publishing behavior.
+
+The release workflow runs the tests, builds both the standard JAR and the Shadow JAR, creates a `v<version>` tag and GitHub Release, and attaches only `LikeBeacon-<version>.jar` and its SHA-256 checksum. The standard JAR is intentionally not published because it does not bundle the plugin's runtime dependencies.
+
+Release notes are generated from merged pull requests and grouped according to `.github/release.yml`. Apply the `skip-changelog` label to omit a pull request from the notes.
+
 ## Support
 
 Report bugs and request features through [GitHub Issues](https://github.com/biga816/likebeacon/issues). Bug reports should include the server and LikeBeacon versions, installed plugins, reproduction steps, and relevant logs.
