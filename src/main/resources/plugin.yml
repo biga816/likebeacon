@@ -1,7 +1,9 @@
 name: LikeBeacon
 version: ${version}
 main: dev.biga.likebeacon.LikeBeaconPlugin
-api-version: "1.21"
+api-version: "1.21.4"
+author: biga816
+website: https://github.com/biga816/likebeacon
 description: "A Minecraft Paper plugin for sharing appreciation through Likes, chat reactions, and a community feed."
 
 commands:
@@ -11,7 +13,5 @@ commands:
 permissions:
   likebeacon.use:
     default: true
-  likebeacon.admin:
-    default: op
   likebeacon.limit.bypass:
     default: op

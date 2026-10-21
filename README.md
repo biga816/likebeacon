@@ -94,7 +94,6 @@ Tab completion includes subcommands, online players, and recent display codes af
 | Permission | Default | Purpose |
 | --- | --- | --- |
 | `likebeacon.use` | Everyone | Use all `/like` commands |
-| `likebeacon.admin` | Operators | Administrative access |
 | `likebeacon.limit.bypass` | Operators | Bypass the daily direct-Like limit |
 
 ## Configuration
