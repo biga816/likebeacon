@@ -106,6 +106,18 @@ jobs:
             exit 1
           }
 
+          for required_file in \
+            META-INF/LICENSE \
+            META-INF/THIRD_PARTY_NOTICES.md \
+            META-INF/maven/org.xerial/sqlite-jdbc/LICENSE \
+            META-INF/maven/org.xerial/sqlite-jdbc/LICENSE.zentus
+          do
+            jar --list --file "$SHADOW_JAR" | grep -Fxq "$required_file" || {
+              echo "::error::Shadow JAR does not contain $required_file."
+              exit 1
+            }
+          done
+
           jar --list --file "$PLAIN_JAR" | grep -Fxq "org/sqlite/JDBC.class" && {
             echo "::error::Standard JAR unexpectedly contains the SQLite JDBC driver."
             exit 1

@@ -29,3 +29,28 @@ jobs:
 
       - name: Build and test
         run: ./gradlew --no-daemon build
+
+      - name: Verify release JAR licenses
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(sed -n 's/^version=//p' gradle.properties)"
+          shadow_jar="build/libs/LikeBeacon-$version.jar"
+
+          test -f "$shadow_jar" || {
+            echo "::error::Shadow JAR was not created at $shadow_jar."
+            exit 1
+          }
+
+          for required_file in \
+            META-INF/LICENSE \
+            META-INF/THIRD_PARTY_NOTICES.md \
+            META-INF/maven/org.xerial/sqlite-jdbc/LICENSE \
+            META-INF/maven/org.xerial/sqlite-jdbc/LICENSE.zentus
+          do
+            jar --list --file "$shadow_jar" | grep -Fxq "$required_file" || {
+              echo "::error::Shadow JAR does not contain $required_file."
+              exit 1
+            }
+          done

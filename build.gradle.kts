@@ -5,6 +5,7 @@
  * Learn more about Gradle by exploring our Samples at https://docs.gradle.org/9.4.0/samples
  */
 import org.gradle.language.jvm.tasks.ProcessResources
+import org.gradle.jvm.tasks.Jar
 
 plugins {
     java
@@ -53,14 +54,20 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
+tasks.withType<Jar>().configureEach {
+    from("LICENSE") {
+        into("META-INF")
+    }
+    from("THIRD_PARTY_NOTICES.md") {
+        into("META-INF")
+    }
+}
+
 tasks.shadowJar {
     archiveBaseName.set("LikeBeacon")
     archiveClassifier.set("")
     mergeServiceFiles()
     relocate("org.bstats", "dev.biga.likebeacon.lib.bstats")
-    from("THIRD_PARTY_NOTICES.md") {
-        into("META-INF")
-    }
 }
 
 tasks.build {

@@ -228,4 +228,4 @@ Report bugs and request features through [GitHub Issues](https://github.com/biga
 
 ## License
 
-LikeBeacon is available under the [MIT License](LICENSE). The bStats license notice is included in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+LikeBeacon is available under the [MIT License](LICENSE). Its release JAR also bundles bStats Metrics, SQLite JDBC, and SLF4J API; their licenses and attribution notices are documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Copies of LikeBeacon's license and the third-party notices are included in the JAR under `META-INF/`.
