@@ -52,8 +52,20 @@ The feed, rankings, and personal statistics use Minecraft's native book UI.
 
 ### Requirements
 
-- Java 21 or later
-- Paper 1.21.4 or later (1.21.x)
+LikeBeacon is a Paper-only, server-side plugin. It does not currently support
+Spigot, Bukkit, or Folia.
+
+| Paper / Minecraft | Java runtime | Release-test coverage |
+| --- | --- | --- |
+| 1.21.4–1.21.11 | Java 21 | Paper 1.21.4 build 232 and Paper 1.21.11 build 132 |
+| 26.3 | Java 25 | Paper 26.3 build 206 |
+
+The 1.21.x support range is tested at its oldest and newest supported versions.
+Versions outside the ranges above are not currently supported. The plugin JAR
+is compiled for Java 21; Paper 26.3 itself requires Java 25 at runtime.
+
+LikeBeacon has no required plugin dependencies. The SQLite JDBC driver is
+included in the release JAR.
 
 ### Steps
 
@@ -198,7 +210,7 @@ Build the plugin with Java 21 or later:
 
 The shaded JAR, including the SQLite JDBC driver, is written to `build/libs/LikeBeacon-<version>.jar`.
 
-For local testing, `./gradlew deployToTestServer` copies the JAR and a fresh config to `paper-test/plugins/`. Start your Paper 1.21.x test server from that directory and use two Minecraft accounts to exercise multiplayer interactions.
+For local testing, `./gradlew deployToTestServer` copies the JAR and a fresh config to `paper-test/plugins/`. Test each supported Paper line with the Java runtime shown in the compatibility table, and use at least two Minecraft accounts to exercise multiplayer interactions.
 
 ### Release
 
