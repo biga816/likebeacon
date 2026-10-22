@@ -1,5 +1,10 @@
 # LikeBeacon
 
+<p align="left">
+  <img src="docs/assets/icon.png" alt="LikeBeacon icon" width="128">
+</p>
+
+
 LikeBeacon is a Minecraft Paper plugin for sharing appreciation in your community. Players can send a Like with a message, react to chat, and revisit positive moments in one shared feed.
 
 ![LikeBeacon plugin demo](docs/assets/demo.gif)
