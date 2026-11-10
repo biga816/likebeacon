@@ -190,7 +190,7 @@ public final class LikeBookService {
             return;
         meta.setTitle(title);
         meta.setAuthor(plugin.getName());
-        meta.pages(pages);
+        meta.addPages(pages.toArray(Component[]::new));
         book.setItemMeta(meta);
         player.openBook(book);
     }
