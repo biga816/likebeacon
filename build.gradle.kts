@@ -10,12 +10,19 @@ import org.gradle.jvm.tasks.Jar
 plugins {
     java
     id("com.gradleup.shadow") version "9.4.0"
+    id("com.modrinth.minotaur") version "2.10.0"
 }
 
 group = providers.gradleProperty("group").get()
 version = providers.gradleProperty("version").get()
 
 val pluginVersion = version.toString()
+val supportedMinecraftVersions = providers.gradleProperty("supportedMinecraftVersions")
+    .map { value -> value.split(',').map(String::trim).filter(String::isNotEmpty) }
+val marketplaceJar = layout.buildDirectory.file("release/LikeBeacon-$pluginVersion.jar")
+val modrinthChangelog = providers.gradleProperty("modrinthChangelogFile")
+    .map { path -> file(path).readText() }
+    .orElse("See the corresponding GitHub release for details.")
 
 java {
     toolchain {
@@ -76,6 +83,26 @@ tasks.build {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+modrinth {
+    token.set(providers.environmentVariable("MODRINTH_TOKEN"))
+    projectId.set(providers.gradleProperty("modrinthProjectId"))
+    versionNumber.set(pluginVersion)
+    versionName.set("LikeBeacon $pluginVersion")
+    versionType.set("release")
+    changelog.set(modrinthChangelog)
+    uploadFile.set(marketplaceJar)
+    gameVersions.addAll(supportedMinecraftVersions)
+    loaders.add("paper")
+    environment.set("server_only")
+    detectLoaders.set(false)
+    failSilently.set(false)
+    debugMode.set(
+        providers.gradleProperty("modrinthDebug")
+            .map(String::toBoolean)
+            .orElse(false),
+    )
 }
 
 tasks.register<Copy>("deployToTestServer") {
