@@ -1,0 +1,264 @@
+name: Publish release to marketplaces
+
+run-name: Publish ${{ github.event.release.tag_name || inputs.tag }} to ${{ inputs.target || 'Hangar and Modrinth' }}
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published GitHub release tag to publish (for example, v1.1.0)
+        required: true
+        type: string
+      target:
+        description: Marketplace to publish during a recovery run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - hangar
+          - modrinth
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-marketplaces-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate published release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      jar_name: ${{ steps.release.outputs.jar_name }}
+      jar_url: ${{ steps.release.outputs.jar_url }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 0
+
+      - name: Validate release and assets
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release tag must be a semantic version with the v prefix (for example, v1.1.0)."
+            exit 1
+          fi
+
+          release_json="$(gh release view "$RELEASE_TAG" --json tagName,isDraft,isPrerelease,assets)"
+          if [[ "$(jq -r '.isDraft' <<< "$release_json")" == "true" ]]; then
+            echo "::error::$RELEASE_TAG is still a draft release."
+            exit 1
+          fi
+
+          version="${RELEASE_TAG#v}"
+          project_version="$(sed -n 's/^version=//p' gradle.properties)"
+          if [[ "$version" != "$project_version" ]]; then
+            echo "::error::Release version $version does not match gradle.properties version $project_version at $RELEASE_TAG."
+            exit 1
+          fi
+
+          jar_name="LikeBeacon-$version.jar"
+          checksum_name="$jar_name.sha256"
+
+          if ! jq -e --arg name "$jar_name" 'any(.assets[]; .name == $name)' <<< "$release_json" >/dev/null; then
+            echo "::error::GitHub release $RELEASE_TAG does not contain $jar_name."
+            exit 1
+          fi
+          if ! jq -e --arg name "$checksum_name" 'any(.assets[]; .name == $name)' <<< "$release_json" >/dev/null; then
+            echo "::error::GitHub release $RELEASE_TAG does not contain $checksum_name."
+            exit 1
+          fi
+
+          prerelease="$(jq -r '.isPrerelease' <<< "$release_json")"
+          jar_url="https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$jar_name"
+
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "jar_name=$jar_name" >> "$GITHUB_OUTPUT"
+          echo "jar_url=$jar_url" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Marketplace publication"
+            echo
+            echo "- Release: $RELEASE_TAG"
+            echo "- JAR: $jar_name"
+            echo "- Prerelease: $prerelease"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$prerelease" == "true" ]]; then
+            {
+              echo
+              echo "> Prereleases are not published automatically until matching Hangar channels are configured."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Download and verify release JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          JAR_NAME: ${{ steps.release.outputs.jar_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/release
+          gh release download "$RELEASE_TAG" \
+            --pattern "$JAR_NAME" \
+            --pattern "$JAR_NAME.sha256" \
+            --dir build/release
+          (
+            cd build/release
+            sha256sum --check "$JAR_NAME.sha256"
+          )
+
+  publish-hangar:
+    name: Publish to Hangar
+    needs: prepare
+    if: >-
+      needs.prepare.outputs.prerelease == 'false' &&
+      (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'hangar')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Validate Hangar token
+        env:
+          HANGAR_API_TOKEN: ${{ secrets.HANGAR_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$HANGAR_API_TOKEN" ]]; then
+            echo "::error::Repository secret HANGAR_API_TOKEN is not configured."
+            exit 1
+          fi
+
+      - name: Read Hangar publication metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          project_slug="$(sed -n 's/^hangarProjectSlug=//p' gradle.properties)"
+          supported_versions="$(sed -n 's/^supportedMinecraftVersions=//p' gradle.properties)"
+          if [[ -z "$project_slug" || -z "$supported_versions" ]]; then
+            echo "::error::Hangar publication metadata is missing from gradle.properties."
+            exit 1
+          fi
+
+          platform_dependencies="$(jq -cn --arg versions "$supported_versions" '{PAPER: ($versions | split(","))}')"
+          echo "project_slug=$project_slug" >> "$GITHUB_OUTPUT"
+          echo "platform_dependencies=$platform_dependencies" >> "$GITHUB_OUTPUT"
+
+      - name: Read GitHub release notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          delimiter="release-notes-$(date +%s)-$RANDOM"
+          {
+            echo "body<<$delimiter"
+            gh release view "$RELEASE_TAG" --json body --jq '.body'
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish external download to Hangar
+        uses: milkdrinkers/Hangar-Publish@4f193ca77db89ad49f293024f58ee172e01b3099 # v2.2.0
+        with:
+          api_token: ${{ secrets.HANGAR_API_TOKEN }}
+          slug: ${{ steps.metadata.outputs.project_slug }}
+          version: ${{ needs.prepare.outputs.version }}
+          channel: Release
+          description: ${{ steps.notes.outputs.body }}
+          files: |
+            [
+              {
+                "platforms": ["PAPER"],
+                "url": true,
+                "externalUrl": "${{ needs.prepare.outputs.jar_url }}"
+              }
+            ]
+          platform_dependencies: ${{ steps.metadata.outputs.platform_dependencies }}
+
+  publish-modrinth:
+    name: Publish to Modrinth
+    needs: prepare
+    if: >-
+      needs.prepare.outputs.prerelease == 'false' &&
+      (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'modrinth')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Validate Modrinth token
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$MODRINTH_TOKEN" ]]; then
+            echo "::error::Repository secret MODRINTH_TOKEN is not configured."
+            exit 1
+          fi
+
+      - name: Download and verify GitHub release JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          JAR_NAME: ${{ needs.prepare.outputs.jar_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/release
+          gh release download "$RELEASE_TAG" \
+            --pattern "$JAR_NAME" \
+            --pattern "$JAR_NAME.sha256" \
+            --dir build/release
+          (
+            cd build/release
+            sha256sum --check "$JAR_NAME.sha256"
+          )
+          gh release view "$RELEASE_TAG" --json body --jq '.body' > build/release/release-notes.md
+
+      - name: Publish GitHub release JAR to Modrinth
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: >-
+          ./gradlew --no-daemon --no-configuration-cache modrinth
+          -PmodrinthChangelogFile=build/release/release-notes.md

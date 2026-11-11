@@ -221,9 +221,11 @@ For local testing, `./gradlew deployToTestServer` copies the JAR and a fresh con
 1. Update `version` in `gradle.properties` and merge the change into `main`.
 2. Confirm that the `CI` workflow succeeds on `main`.
 3. Open **Actions > Release > Run workflow**, select `main`, and enter the same version without the `v` prefix.
-4. For the initial release, enable **Create a draft release**, edit the generated release notes, and publish the draft manually. Later releases can use the default automatic publishing behavior.
+4. Edit the generated draft release notes and publish the draft manually.
 
-The release workflow runs the tests, builds both the standard JAR and the Shadow JAR, creates a `v<version>` tag and GitHub Release, and attaches only `LikeBeacon-<version>.jar` and its SHA-256 checksum. The standard JAR is intentionally not published because it does not bundle the plugin's runtime dependencies.
+The release workflow always creates a draft so that the release notes can be reviewed before anything is published. It runs the tests, builds both the standard JAR and the Shadow JAR, creates a `v<version>` tag and GitHub Release, and attaches only `LikeBeacon-<version>.jar` and its SHA-256 checksum. The standard JAR is intentionally not published because it does not bundle the plugin's runtime dependencies.
+
+Publishing the GitHub release starts the marketplace workflow. That workflow verifies the release checksum, registers the GitHub Release Asset as Hangar's external download, and uploads the same verified JAR to Modrinth. See [release automation](docs/release-automation.md) for the required secrets, metadata, recovery procedure, and current prerelease policy.
 
 Release notes are generated from merged pull requests and grouped according to `.github/release.yml`. Apply the `skip-changelog` label to omit a pull request from the notes.
 
