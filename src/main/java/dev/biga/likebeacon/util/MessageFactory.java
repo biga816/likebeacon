@@ -110,6 +110,31 @@ public class MessageFactory {
                 displayCode, reactionCount, alreadyReacted, clickable, showDisplayCode));
     }
 
+    /**
+     * Builds a server-wide announcement that an item reached a Like milestone,
+     * followed by a clickable react button showing the milestone count.
+     *
+     * @param item          the item that reached the milestone
+     * @param senderDisplay pre-built component for the direct Like sender; unused
+     *                      for chat items
+     * @param authorDisplay pre-built component for the item author
+     * @param milestone     the reached reaction count
+     * @return the assembled {@link Component}
+     */
+    public Component buildItemMilestoneMessage(FeedItem item, Component senderDisplay,
+            Component authorDisplay, long milestone) {
+        Component body = Component.text(item.bodyText()).color(NamedTextColor.WHITE);
+        Component count = Component.text(milestone).color(NamedTextColor.WHITE);
+        Component announcement = item.type() == FeedItemType.CHAT
+                ? Component.translatable("likebeacon.milestone.item.chat.broadcast",
+                        authorDisplay, body, count)
+                : Component.translatable("likebeacon.milestone.item.direct.broadcast",
+                        senderDisplay, authorDisplay, body, count);
+
+        return withPrefix(announcement.color(NamedTextColor.GOLD))
+                .append(buildReactSuffix(item.displayCode(), (int) milestone, false, true, showDisplayCode));
+    }
+
     private Component buildItemBody(FeedItem item, Component senderDisplay, Component authorDisplay) {
         if (item.type() == FeedItemType.CHAT) {
             return Component.translatable("likebeacon.feed.chat.format",

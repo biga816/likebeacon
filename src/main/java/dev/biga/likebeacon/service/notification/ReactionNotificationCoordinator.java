@@ -4,6 +4,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
 import dev.biga.likebeacon.model.FeedItem;
+import dev.biga.likebeacon.service.milestone.MilestoneDetector;
 import dev.biga.likebeacon.util.MessageFactory;
 
 /** Connects Bukkit scheduling to reaction batching and notification delivery. */
@@ -14,24 +15,28 @@ public final class ReactionNotificationCoordinator {
     private final Plugin plugin;
     private final boolean aggregationEnabled;
     private final ReactionNotificationRouter router;
+    private final MilestoneDetector milestoneDetector;
     private BukkitTask task;
 
     public ReactionNotificationCoordinator(Plugin plugin, boolean aggregationEnabled,
             long quietMillis, long maxWaitMillis,
-            MessageFactory messageFactory, LikeEffectService effectService) {
+            MessageFactory messageFactory, LikeEffectService effectService,
+            MilestoneDetector milestoneDetector, MilestoneNotifier milestoneNotifier) {
         this(plugin, aggregationEnabled,
                 new ReactionNotificationRouter(
                         aggregationEnabled,
                         new ReactionNotificationBatcher(
                                 quietMillis, maxWaitMillis, System::currentTimeMillis),
-                        new ReactionNotificationSender(messageFactory, effectService)));
+                        new ReactionNotificationSender(messageFactory, effectService, milestoneNotifier)),
+                milestoneDetector);
     }
 
     ReactionNotificationCoordinator(Plugin plugin, boolean aggregationEnabled,
-            ReactionNotificationRouter router) {
+            ReactionNotificationRouter router, MilestoneDetector milestoneDetector) {
         this.plugin = plugin;
         this.aggregationEnabled = aggregationEnabled;
         this.router = router;
+        this.milestoneDetector = milestoneDetector;
     }
 
     public void start() {
@@ -51,12 +56,14 @@ public final class ReactionNotificationCoordinator {
 
     public void notifyImmediately(String reactorName, FeedItem item,
             String initiatorName, long reactionCount) {
-        router.notifyImmediately(reactorName, item, initiatorName, reactionCount);
+        router.notifyImmediately(reactorName, item, initiatorName, reactionCount,
+                milestoneDetector.itemMilestone(item, reactionCount));
     }
 
     public void enqueue(String reactorName, FeedItem item,
             String initiatorName, long reactionCount) {
-        router.enqueue(reactorName, item, initiatorName, reactionCount);
+        router.enqueue(reactorName, item, initiatorName, reactionCount,
+                milestoneDetector.itemMilestone(item, reactionCount));
     }
 
     private void flushDue() {

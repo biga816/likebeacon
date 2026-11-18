@@ -18,8 +18,12 @@ import dev.biga.likebeacon.service.feed.RecentService;
 import dev.biga.likebeacon.service.like.CooldownService;
 import dev.biga.likebeacon.service.like.DirectLikeService;
 import dev.biga.likebeacon.service.like.LikeService;
+import dev.biga.likebeacon.service.milestone.BroadcastRateLimiter;
+import dev.biga.likebeacon.service.milestone.MilestoneConfig;
+import dev.biga.likebeacon.service.milestone.MilestoneDetector;
 import dev.biga.likebeacon.service.notification.LikeEffectService;
 import dev.biga.likebeacon.service.notification.LikeNotificationService;
+import dev.biga.likebeacon.service.notification.MilestoneNotifier;
 import dev.biga.likebeacon.service.notification.ReactionNotificationCoordinator;
 import dev.biga.likebeacon.service.reaction.ChatPromotionService;
 import dev.biga.likebeacon.service.reaction.ReactionService;
@@ -31,6 +35,7 @@ import org.bstats.bukkit.Metrics;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.concurrent.CompletionException;
 
@@ -116,9 +121,14 @@ public class LikeBeaconPlugin extends JavaPlugin {
                 "notifications.reactionAggregation.quietSeconds", 3L));
         long maxWaitSeconds = Math.max(quietSeconds, getConfig().getLong(
                 "notifications.reactionAggregation.maxWaitSeconds", 10L));
+        MilestoneConfig milestoneConfig = loadMilestoneConfig();
+        MilestoneDetector milestoneDetector = new MilestoneDetector(milestoneConfig);
+        MilestoneNotifier milestoneNotifier = new MilestoneNotifier(
+                messageFactory, playerNameResolver, milestoneDetector,
+                new BroadcastRateLimiter(milestoneConfig.minIntervalMillis(), System::currentTimeMillis));
         reactionNotificationCoordinator = new ReactionNotificationCoordinator(
                 this, aggregationEnabled, quietSeconds * 1_000L, maxWaitSeconds * 1_000L,
-                messageFactory, effectService);
+                messageFactory, effectService, milestoneDetector, milestoneNotifier);
         reactionNotificationCoordinator.start();
         LikeNotificationService notificationService = new LikeNotificationService(
                 recentService, messageFactory, effectService, reactionNotificationCoordinator);
@@ -169,6 +179,17 @@ public class LikeBeaconPlugin extends JavaPlugin {
         metrics = new Metrics(this, BSTATS_PLUGIN_ID);
 
         getLogger().info("LikeBeacon enabled!");
+    }
+
+    private MilestoneConfig loadMilestoneConfig() {
+        String path = "notifications.milestones.";
+        return MilestoneConfig.of(
+                getConfig().getBoolean(path + "enabled", true),
+                getConfig().getLong(path + "minIntervalSeconds", 30L),
+                getConfig().getList(path + "item.thresholds", List.of()),
+                getConfig().getLong(path + "item.directMinThreshold", 10L),
+                getConfig().getLong(path + "item.maxItemAgeHours", 24L),
+                getLogger()::warning);
     }
 
     @Override

@@ -128,6 +128,18 @@ The daily limit can be bypassed with `likebeacon.limit.bypass`. Pair cooldowns r
 | `notifications.reactionAggregation.quietSeconds` | `3` | Send a batch after this many seconds without another reaction |
 | `notifications.reactionAggregation.maxWaitSeconds` | `10` | Maximum time to wait before sending a batch |
 
+### Milestone announcements
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `notifications.milestones.enabled` | `true` | Announce feed items that reach a Like milestone to everyone except the author |
+| `notifications.milestones.minIntervalSeconds` | `30` | Minimum seconds between milestone announcements; announcements inside the interval are skipped |
+| `notifications.milestones.item.thresholds` | `[3, 10, 30]` | Like counts that trigger an announcement when an item reaches exactly that value |
+| `notifications.milestones.item.directMinThreshold` | `10` | Skip thresholds below this value for direct Likes, which are already announced when sent |
+| `notifications.milestones.item.maxItemAgeHours` | `24` | Do not announce items older than this many hours; `0` removes the limit |
+
+Thresholds must be whole numbers of 2 or more; invalid values are ignored with a warning in the server log. A direct Like's count includes the sender's initial Like, matching the `[♡N]` count shown in the feed.
+
 ### Chat Likes
 
 | Key | Default | Purpose |
@@ -166,7 +178,7 @@ Players can then enter `/like #<code>` instead. `/like log` always shows codes, 
 
 ### Notifications
 
-Direct Likes are announced to online players other than the sender and recipient. Chat Likes and later reactions are private to the reacting player and recipient.
+Direct Likes are announced to online players other than the sender and recipient. Chat Likes and later reactions are private to the reacting player and recipient until the item reaches a milestone, when everyone except the author sees an announcement with a clickable `[♡N]` control. Milestone announcements follow the recipient's notification for the same reactions.
 
 The first Like on a chat message is delivered immediately. Later reactions to an existing item can be aggregated, while each reacting player still receives immediate confirmation. For a direct Like from A to B, B remains the recipient of any later reactions.
 

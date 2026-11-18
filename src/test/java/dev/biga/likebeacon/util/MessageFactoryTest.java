@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.translation.GlobalTranslator;
 
 class MessageFactoryTest {
 
@@ -52,6 +53,20 @@ class MessageFactoryTest {
         Component result = MessageFactory.applyJapaneseWrapping(message, Locale.US);
 
         assertSame(message, result);
+    }
+
+    @Test
+    void itemMilestoneTranslationsRenderInBothLocales() {
+        Component message = Component.translatable(
+                "likebeacon.milestone.item.chat.broadcast",
+                Component.text("Steve"),
+                Component.text("Found a diamond!"),
+                Component.text("10"));
+
+        assertEquals("★ Steve's message \"Found a diamond!\" reached 10 likes!",
+                plainText(GlobalTranslator.render(message, Locale.US)));
+        assertEquals("★ Steve の発言「Found a diamond!」が 10件のいいねを集めました！",
+                plainText(GlobalTranslator.render(message, Locale.JAPAN)));
     }
 
     private static String plainText(Component component) {

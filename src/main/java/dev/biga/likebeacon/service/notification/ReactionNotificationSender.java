@@ -13,18 +13,27 @@ final class ReactionNotificationSender implements ReactionNotificationSink {
 
     private final MessageFactory messageFactory;
     private final LikeEffectService effectService;
+    private final MilestoneNotifier milestoneNotifier;
 
-    ReactionNotificationSender(MessageFactory messageFactory, LikeEffectService effectService) {
+    ReactionNotificationSender(MessageFactory messageFactory, LikeEffectService effectService,
+            MilestoneNotifier milestoneNotifier) {
         this.messageFactory = messageFactory;
         this.effectService = effectService;
+        this.milestoneNotifier = milestoneNotifier;
     }
 
     @Override
     public void send(ReactionNotificationBatch batch) {
         Player target = Bukkit.getPlayer(batch.item().authorUuid());
-        if (target == null)
-            return;
+        if (target != null)
+            sendReceived(target, batch);
+        // Sent after the received notification so the author learns who liked
+        // the item before seeing the server-wide announcement.
+        if (batch.itemMilestone() > 0L)
+            milestoneNotifier.notifyItemMilestone(batch.item(), batch.initiatorName(), batch.itemMilestone());
+    }
 
+    private void sendReceived(Player target, ReactionNotificationBatch batch) {
         Component reactor = text(batch.firstReactorName());
         Component body = text(batch.item().bodyText());
         Component total = number(batch.latestReactionCount());

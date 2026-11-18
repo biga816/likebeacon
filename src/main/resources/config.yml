@@ -27,6 +27,18 @@ notifications:
     quietSeconds: 3
     # Always send by this many seconds after the first Like in the batch.
     maxWaitSeconds: 10
+  milestones:
+    enabled: true
+    # Minimum seconds between server-wide milestone announcements.
+    # Announcements inside this interval are skipped; the author is still notified.
+    minIntervalSeconds: 30
+    item:
+      # Announce when an item's Like count reaches exactly one of these values (2 or more).
+      thresholds: [3, 10, 30]
+      # Direct Likes are already announced when created; skip thresholds below this value for them.
+      directMinThreshold: 10
+      # Do not announce items older than this many hours (0 = no limit).
+      maxItemAgeHours: 24
 
 chat:
   enabled: true
