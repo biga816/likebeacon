@@ -69,6 +69,19 @@ class MessageFactoryTest {
                 plainText(GlobalTranslator.render(message, Locale.JAPAN)));
     }
 
+    @Test
+    void playerMilestoneTranslationsRenderInBothLocales() {
+        Component message = Component.translatable(
+                "likebeacon.milestone.player.broadcast",
+                Component.text("Steve"),
+                Component.text("50"));
+
+        assertEquals("★ Steve has received 50 likes in total!",
+                plainText(GlobalTranslator.render(message, Locale.US)));
+        assertEquals("★ Steve が累計 50件のいいねを受け取りました！",
+                plainText(GlobalTranslator.render(message, Locale.JAPAN)));
+    }
+
     private static String plainText(Component component) {
         StringBuilder result = new StringBuilder();
         appendPlainText(component, result);

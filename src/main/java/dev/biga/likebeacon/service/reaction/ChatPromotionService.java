@@ -106,19 +106,17 @@ public final class ChatPromotionService {
         Reaction reaction = new Reaction(UUID.randomUUID().toString(), serverId, now, itemId,
                 reactorUuid, pending.authorUuid(), "LIKE");
 
-        writeExecutor.submit(() -> {
-            databaseManager.executeInTransaction(connection -> {
-                itemRepository.save(connection, item);
-                reactionRepository.save(connection, reaction);
-                itemStatsRepository.insertNew(connection, serverId, itemId, now);
-                playerStatsRepository.incrementCount(
-                        connection, PlayerStatType.RECEIVED, serverId,
-                        pending.authorUuid(), pending.authorName(), now);
-                playerStatsRepository.incrementCount(
-                        connection, PlayerStatType.REACTED, serverId, reactorUuid, reactorName, now);
-            });
-            return null;
-        }).whenComplete((ignored, failure) -> runOnMainThread(() -> {
+        writeExecutor.submit(() -> databaseManager.executeInTransactionWithResult(connection -> {
+            itemRepository.save(connection, item);
+            reactionRepository.save(connection, reaction);
+            itemStatsRepository.insertNew(connection, serverId, itemId, now);
+            long receivedCount = playerStatsRepository.incrementCount(
+                    connection, PlayerStatType.RECEIVED, serverId,
+                    pending.authorUuid(), pending.authorName(), now);
+            playerStatsRepository.incrementCount(
+                    connection, PlayerStatType.REACTED, serverId, reactorUuid, reactorName, now);
+            return receivedCount;
+        })).whenComplete((receivedCount, failure) -> runOnMainThread(() -> {
             if (failure != null) {
                 Throwable cause = AsyncFailures.unwrap(failure);
                 pendingChatService.failPromotion(pending.displayCode(), cause);
@@ -131,7 +129,8 @@ public final class ChatPromotionService {
             }
 
             pendingChatService.completePromotion(pending.displayCode(), item);
-            notificationService.notifyChatPromotion(reactorUuid, reactorName, item, pending.authorName());
+            notificationService.notifyChatPromotion(
+                    reactorUuid, reactorName, item, pending.authorName(), receivedCount);
         }));
     }
 

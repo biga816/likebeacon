@@ -28,7 +28,7 @@ final class ReactionNotificationBatcher {
     }
 
     List<ReactionNotificationBatch> add(String reactorName, FeedItem item,
-            String initiatorName, long reactionCount, long itemMilestone) {
+            String initiatorName, long reactionCount, ReactionMilestones milestones) {
         long now = clock.getAsLong();
         List<ReactionNotificationBatch> due = new ArrayList<>(1);
         ReactionNotificationBatch batch = batches.get(item.itemId());
@@ -40,9 +40,9 @@ final class ReactionNotificationBatcher {
 
         if (batch == null) {
             batches.put(item.itemId(), new ReactionNotificationBatch(
-                    reactorName, item, initiatorName, reactionCount, itemMilestone, now));
+                    reactorName, item, initiatorName, reactionCount, milestones, now));
         } else {
-            batch.addReaction(reactionCount, itemMilestone, now);
+            batch.addReaction(reactionCount, milestones, now);
         }
         return List.copyOf(due);
     }
@@ -62,9 +62,9 @@ final class ReactionNotificationBatcher {
     }
 
     ReactionNotificationBatch single(String reactorName, FeedItem item,
-            String initiatorName, long reactionCount, long itemMilestone) {
+            String initiatorName, long reactionCount, ReactionMilestones milestones) {
         return new ReactionNotificationBatch(
-                reactorName, item, initiatorName, reactionCount, itemMilestone, clock.getAsLong());
+                reactorName, item, initiatorName, reactionCount, milestones, clock.getAsLong());
     }
 
     void clear() {

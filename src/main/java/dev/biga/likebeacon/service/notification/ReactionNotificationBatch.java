@@ -12,23 +12,23 @@ final class ReactionNotificationBatch {
     private long lastAt;
     private long latestReactionCount;
     private long newReactionCount = 1L;
-    private long itemMilestone;
+    private ReactionMilestones milestones;
 
     ReactionNotificationBatch(String firstReactorName, FeedItem item,
-            String initiatorName, long reactionCount, long itemMilestone, long now) {
+            String initiatorName, long reactionCount, ReactionMilestones milestones, long now) {
         this.firstReactorName = firstReactorName;
         this.item = item;
         this.initiatorName = initiatorName;
         this.latestReactionCount = reactionCount;
-        this.itemMilestone = itemMilestone;
+        this.milestones = milestones;
         this.firstAt = now;
         this.lastAt = now;
     }
 
-    void addReaction(long reactionCount, long itemMilestone, long now) {
+    void addReaction(long reactionCount, ReactionMilestones milestones, long now) {
         newReactionCount++;
         latestReactionCount = reactionCount;
-        this.itemMilestone = Math.max(this.itemMilestone, itemMilestone);
+        this.milestones = this.milestones.merge(milestones);
         lastAt = now;
     }
 
@@ -56,8 +56,8 @@ final class ReactionNotificationBatch {
         return newReactionCount;
     }
 
-    /** Highest item milestone reached in this batch, or {@code 0} when none was reached. */
-    long itemMilestone() {
-        return itemMilestone;
+    /** Highest milestones of each kind reached by reactions in this batch. */
+    ReactionMilestones milestones() {
+        return milestones;
     }
 }

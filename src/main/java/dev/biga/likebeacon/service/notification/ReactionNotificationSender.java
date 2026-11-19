@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import dev.biga.likebeacon.model.FeedItemType;
+import dev.biga.likebeacon.service.milestone.MilestoneDetector;
 import dev.biga.likebeacon.util.MessageFactory;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -29,8 +30,11 @@ final class ReactionNotificationSender implements ReactionNotificationSink {
             sendReceived(target, batch);
         // Sent after the received notification so the author learns who liked
         // the item before seeing the server-wide announcement.
-        if (batch.itemMilestone() > 0L)
-            milestoneNotifier.notifyItemMilestone(batch.item(), batch.initiatorName(), batch.itemMilestone());
+        ReactionMilestones milestones = batch.milestones();
+        if (milestones.item() != MilestoneDetector.NONE)
+            milestoneNotifier.notifyItemMilestone(batch.item(), batch.initiatorName(), milestones.item());
+        if (milestones.player() != MilestoneDetector.NONE)
+            milestoneNotifier.notifyPlayerMilestone(batch.item().authorUuid(), milestones.player());
     }
 
     private void sendReceived(Player target, ReactionNotificationBatch batch) {

@@ -45,6 +45,17 @@ class MilestoneDetectorTest {
     }
 
     @Test
+    void playerReachesOnlyExactThresholds() {
+        MilestoneDetector detector = detector(true, 10L, 24L);
+
+        assertEquals(MilestoneDetector.NONE, detector.playerMilestone(9L));
+        assertEquals(10L, detector.playerMilestone(10L));
+        assertEquals(MilestoneDetector.NONE, detector.playerMilestone(11L));
+        assertEquals(50L, detector.playerMilestone(50L));
+        assertEquals(MilestoneDetector.NONE, detector(false, 10L, 24L).playerMilestone(10L));
+    }
+
+    @Test
     void broadcastIsLimitedByItemAge() {
         MilestoneDetector detector = detector(true, 10L, 24L);
 
@@ -61,7 +72,7 @@ class MilestoneDetectorTest {
 
     private static MilestoneDetector detector(boolean enabled, long directMin, long maxAgeHours) {
         return new MilestoneDetector(MilestoneConfig.of(
-                enabled, 30L, List.of(3, 10, 30), directMin, maxAgeHours, message -> {
+                enabled, 30L, List.of(3, 10, 30), directMin, maxAgeHours, List.of(10, 50), message -> {
                 }));
     }
 

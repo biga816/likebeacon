@@ -135,6 +135,21 @@ public class MessageFactory {
                 .append(buildReactSuffix(item.displayCode(), (int) milestone, false, true, showDisplayCode));
     }
 
+    /**
+     * Builds a server-wide announcement that a player's received Like count
+     * reached a milestone.
+     *
+     * @param playerDisplay pre-built component for the player name
+     * @param milestone     the reached received count
+     * @return the assembled {@link Component}
+     */
+    public Component buildPlayerMilestoneMessage(Component playerDisplay, long milestone) {
+        return withPrefix(Component.translatable("likebeacon.milestone.player.broadcast",
+                playerDisplay,
+                Component.text(milestone).color(NamedTextColor.WHITE))
+                .color(NamedTextColor.GOLD));
+    }
+
     private Component buildItemBody(FeedItem item, Component senderDisplay, Component authorDisplay) {
         if (item.type() == FeedItemType.CHAT) {
             return Component.translatable("likebeacon.feed.chat.format",

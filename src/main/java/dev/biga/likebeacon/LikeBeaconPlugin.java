@@ -131,7 +131,8 @@ public class LikeBeaconPlugin extends JavaPlugin {
                 messageFactory, effectService, milestoneDetector, milestoneNotifier);
         reactionNotificationCoordinator.start();
         LikeNotificationService notificationService = new LikeNotificationService(
-                recentService, messageFactory, effectService, reactionNotificationCoordinator);
+                recentService, messageFactory, effectService, reactionNotificationCoordinator,
+                milestoneDetector, milestoneNotifier);
         PendingChatService pendingChatService = new PendingChatService(
                 getConfig().getInt("chat.pendingBufferSize", 30));
 
@@ -189,6 +190,7 @@ public class LikeBeaconPlugin extends JavaPlugin {
                 getConfig().getList(path + "item.thresholds", List.of()),
                 getConfig().getLong(path + "item.directMinThreshold", 10L),
                 getConfig().getLong(path + "item.maxItemAgeHours", 24L),
+                getConfig().getList(path + "player.thresholds", List.of()),
                 getLogger()::warning);
     }
 

@@ -13,10 +13,12 @@ public final class MilestoneDetector {
 
     private final MilestoneConfig config;
     private final Set<Long> itemThresholds;
+    private final Set<Long> playerThresholds;
 
     public MilestoneDetector(MilestoneConfig config) {
         this.config = config;
         this.itemThresholds = Set.copyOf(config.itemThresholds());
+        this.playerThresholds = Set.copyOf(config.playerThresholds());
     }
 
     /**
@@ -30,6 +32,17 @@ public final class MilestoneDetector {
         if (item.type() == FeedItemType.DIRECT && reactionCount < config.directMinThreshold())
             return NONE;
         return reactionCount;
+    }
+
+    /**
+     * Returns the player milestone reached by exactly this received count, or
+     * {@link #NONE}. Received counts never decrease, so each milestone is
+     * returned for at most one Like per player.
+     */
+    public long playerMilestone(long receivedCount) {
+        if (!config.enabled() || !playerThresholds.contains(receivedCount))
+            return NONE;
+        return receivedCount;
     }
 
     /** Whether an item is recent enough for its milestones to be announced server-wide. */

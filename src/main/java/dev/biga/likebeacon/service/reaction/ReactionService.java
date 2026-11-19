@@ -124,10 +124,10 @@ public final class ReactionService {
                     connection, serverId, item.itemId(), now);
             playerStatsRepository.incrementCount(
                     connection, PlayerStatType.REACTED, serverId, senderUuid, senderName, now);
-            playerStatsRepository.incrementCount(
+            long receivedCount = playerStatsRepository.incrementCount(
                     connection, PlayerStatType.RECEIVED, serverId, item.authorUuid(), targetName, now);
-            return reactionCount;
-        })).whenComplete((reactionCount, failure) -> runOnMainThread(() -> {
+            return new SavedCounts(reactionCount, receivedCount);
+        })).whenComplete((counts, failure) -> runOnMainThread(() -> {
             Player online = Bukkit.getPlayer(senderUuid);
             if (failure != null) {
                 Throwable cause = AsyncFailures.unwrap(failure);
@@ -144,12 +144,15 @@ public final class ReactionService {
                 return;
             }
 
-            notificationService.notifyReaction(
-                    senderUuid, senderName, item, targetName, initiatorName, reactionCount, true);
+            notificationService.notifyReaction(senderUuid, senderName, item, targetName, initiatorName,
+                    counts.reactionCount(), counts.receivedCount(), true);
         }));
     }
 
     private void runOnMainThread(Runnable task) {
         plugin.getServer().getScheduler().runTask(plugin, task);
+    }
+
+    private record SavedCounts(long reactionCount, long receivedCount) {
     }
 }

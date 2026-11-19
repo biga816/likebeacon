@@ -146,7 +146,7 @@ public final class DirectLikeService {
         writeExecutor.submit(() -> databaseManager.executeInTransactionWithResult(connection -> {
             if (!dailyLimitRepository.incrementIfBelowLimit(
                     connection, serverId, request.date(), request.senderUuid(), dailyLimit)) {
-                return false;
+                return OptionalLong.empty();
             }
             itemRepository.save(connection, item);
             reactionRepository.save(connection, initialReaction);
@@ -154,14 +154,14 @@ public final class DirectLikeService {
             playerStatsRepository.incrementCount(
                     connection, PlayerStatType.SENT, serverId,
                     request.senderUuid(), request.senderName(), now);
-            playerStatsRepository.incrementCount(
+            long receivedCount = playerStatsRepository.incrementCount(
                     connection, PlayerStatType.RECEIVED, serverId,
                     request.targetUuid(), request.targetName(), now);
             playerStatsRepository.incrementCount(
                     connection, PlayerStatType.REACTED, serverId,
                     request.senderUuid(), request.senderName(), now);
-            return true;
-        })).whenComplete((created, failure) -> runOnMainThread(() -> {
+            return OptionalLong.of(receivedCount);
+        })).whenComplete((receivedCount, failure) -> runOnMainThread(() -> {
             pendingChatService.releaseDisplayCode(displayCode);
             if (failure != null) {
                 log.log(Level.SEVERE, "Failed to persist like from " + request.senderUuid(),
@@ -169,7 +169,7 @@ public final class DirectLikeService {
                 sendInternalError(request.senderUuid());
                 return;
             }
-            if (!created) {
+            if (receivedCount.isEmpty()) {
                 Player sender = Bukkit.getPlayer(request.senderUuid());
                 if (sender != null) {
                     sender.sendMessage(messageFactory.error(
@@ -179,8 +179,8 @@ public final class DirectLikeService {
             }
 
             cooldownService.setCooldown(request.senderUuid(), request.targetUuid());
-            notificationService.notifyDirectLike(
-                    request.senderUuid(), request.senderName(), request.targetUuid(), request.targetName(), item);
+            notificationService.notifyDirectLike(request.senderUuid(), request.senderName(),
+                    request.targetUuid(), request.targetName(), item, receivedCount.getAsLong());
         }));
     }
 

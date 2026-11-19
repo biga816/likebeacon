@@ -54,16 +54,34 @@ public final class ReactionNotificationCoordinator {
         router.clear();
     }
 
+    /**
+     * Sends a reaction notification now.
+     *
+     * @param reactionCount the item's reaction count after this reaction
+     * @param receivedCount the author's received count after this reaction
+     */
     public void notifyImmediately(String reactorName, FeedItem item,
-            String initiatorName, long reactionCount) {
+            String initiatorName, long reactionCount, long receivedCount) {
         router.notifyImmediately(reactorName, item, initiatorName, reactionCount,
-                milestoneDetector.itemMilestone(item, reactionCount));
+                milestones(item, reactionCount, receivedCount));
     }
 
+    /**
+     * Adds a reaction to its item's notification batch.
+     *
+     * @param reactionCount the item's reaction count after this reaction
+     * @param receivedCount the author's received count after this reaction
+     */
     public void enqueue(String reactorName, FeedItem item,
-            String initiatorName, long reactionCount) {
+            String initiatorName, long reactionCount, long receivedCount) {
         router.enqueue(reactorName, item, initiatorName, reactionCount,
-                milestoneDetector.itemMilestone(item, reactionCount));
+                milestones(item, reactionCount, receivedCount));
+    }
+
+    private ReactionMilestones milestones(FeedItem item, long reactionCount, long receivedCount) {
+        return new ReactionMilestones(
+                milestoneDetector.itemMilestone(item, reactionCount),
+                milestoneDetector.playerMilestone(receivedCount));
     }
 
     private void flushDue() {

@@ -25,9 +25,9 @@ class ReactionNotificationBatcherTest {
 
     @Test
     void quietPeriodStartsAgainAtLatestReaction() {
-        batcher.add("first", item("item"), null, 2L, 0L);
+        batcher.add("first", item("item"), null, 2L, ReactionMilestones.NONE);
         clock.set(2_000L);
-        batcher.add("second", item("item"), null, 3L, 0L);
+        batcher.add("second", item("item"), null, 3L, ReactionMilestones.NONE);
 
         clock.set(4_999L);
         assertTrue(batcher.removeDue().isEmpty());
@@ -42,15 +42,15 @@ class ReactionNotificationBatcherTest {
 
     @Test
     void maximumWaitIsMeasuredFromFirstReaction() {
-        batcher.add("first", item("item"), null, 2L, 0L);
+        batcher.add("first", item("item"), null, 2L, ReactionMilestones.NONE);
         clock.set(2_500L);
-        batcher.add("second", item("item"), null, 3L, 0L);
+        batcher.add("second", item("item"), null, 3L, ReactionMilestones.NONE);
         clock.set(5_000L);
-        batcher.add("third", item("item"), null, 4L, 0L);
+        batcher.add("third", item("item"), null, 4L, ReactionMilestones.NONE);
         clock.set(7_500L);
-        batcher.add("fourth", item("item"), null, 5L, 0L);
+        batcher.add("fourth", item("item"), null, 5L, ReactionMilestones.NONE);
         clock.set(9_999L);
-        batcher.add("fifth", item("item"), null, 6L, 0L);
+        batcher.add("fifth", item("item"), null, 6L, ReactionMilestones.NONE);
 
         assertTrue(batcher.removeDue().isEmpty());
         clock.set(10_000L);
@@ -59,11 +59,11 @@ class ReactionNotificationBatcherTest {
 
     @Test
     void addingAfterDeadlineReturnsOldBatchAndStartsNewOne() {
-        batcher.add("first", item("item"), null, 2L, 0L);
+        batcher.add("first", item("item"), null, 2L, ReactionMilestones.NONE);
         clock.set(3_000L);
 
         ReactionNotificationBatch expired = onlyBatch(
-                batcher.add("next", item("item"), null, 3L, 0L));
+                batcher.add("next", item("item"), null, 3L, ReactionMilestones.NONE));
 
         assertEquals("first", expired.firstReactorName());
         assertEquals(1, batcher.pendingCount());
@@ -77,8 +77,8 @@ class ReactionNotificationBatcherTest {
         ReactionNotificationRouter router = new ReactionNotificationRouter(
                 false, batcher, sent::add);
 
-        router.enqueue("first", item("item"), null, 2L, 0L);
-        router.enqueue("second", item("item"), null, 3L, 0L);
+        router.enqueue("first", item("item"), null, 2L, ReactionMilestones.NONE);
+        router.enqueue("second", item("item"), null, 3L, ReactionMilestones.NONE);
 
         assertEquals(2, sent.size());
         assertEquals(1L, sent.get(0).newReactionCount());

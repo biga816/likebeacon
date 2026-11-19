@@ -11,30 +11,35 @@ public record MilestoneConfig(
         long minIntervalMillis,
         List<Long> itemThresholds,
         long directMinThreshold,
-        long maxItemAgeMillis) {
+        long maxItemAgeMillis,
+        List<Long> playerThresholds) {
 
     private static final long MIN_THRESHOLD = 2L;
 
     public MilestoneConfig {
         itemThresholds = List.copyOf(itemThresholds);
+        playerThresholds = List.copyOf(playerThresholds);
     }
 
     /**
      * Builds a configuration from raw values, dropping invalid entries.
      *
-     * @param rawItemThresholds values of {@code item.thresholds}; non-integers and
-     *                          values below 2 are ignored
-     * @param warn              receives one message per ignored or clamped value
+     * @param rawItemThresholds   values of {@code item.thresholds}; non-integers and
+     *                            values below 2 are ignored
+     * @param rawPlayerThresholds values of {@code player.thresholds}, validated the
+     *                            same way
+     * @param warn                receives one message per ignored or clamped value
      */
     public static MilestoneConfig of(boolean enabled, long minIntervalSeconds,
             List<?> rawItemThresholds, long directMinThreshold, long maxItemAgeHours,
-            Consumer<String> warn) {
+            List<?> rawPlayerThresholds, Consumer<String> warn) {
         return new MilestoneConfig(
                 enabled,
                 nonNegative("minIntervalSeconds", minIntervalSeconds, warn) * 1_000L,
                 normalizeThresholds("item.thresholds", rawItemThresholds, warn),
                 nonNegative("item.directMinThreshold", directMinThreshold, warn),
-                nonNegative("item.maxItemAgeHours", maxItemAgeHours, warn) * 3_600_000L);
+                nonNegative("item.maxItemAgeHours", maxItemAgeHours, warn) * 3_600_000L,
+                normalizeThresholds("player.thresholds", rawPlayerThresholds, warn));
     }
 
     static List<Long> normalizeThresholds(String name, List<?> raw, Consumer<String> warn) {

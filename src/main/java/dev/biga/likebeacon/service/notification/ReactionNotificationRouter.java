@@ -17,17 +17,17 @@ final class ReactionNotificationRouter {
     }
 
     void notifyImmediately(String reactorName, FeedItem item,
-            String initiatorName, long reactionCount, long itemMilestone) {
-        sender.send(batcher.single(reactorName, item, initiatorName, reactionCount, itemMilestone));
+            String initiatorName, long reactionCount, ReactionMilestones milestones) {
+        sender.send(batcher.single(reactorName, item, initiatorName, reactionCount, milestones));
     }
 
     void enqueue(String reactorName, FeedItem item,
-            String initiatorName, long reactionCount, long itemMilestone) {
+            String initiatorName, long reactionCount, ReactionMilestones milestones) {
         if (!aggregationEnabled) {
-            notifyImmediately(reactorName, item, initiatorName, reactionCount, itemMilestone);
+            notifyImmediately(reactorName, item, initiatorName, reactionCount, milestones);
             return;
         }
-        batcher.add(reactorName, item, initiatorName, reactionCount, itemMilestone)
+        batcher.add(reactorName, item, initiatorName, reactionCount, milestones)
                 .forEach(sender::send);
     }
 

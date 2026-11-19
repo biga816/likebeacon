@@ -39,6 +39,9 @@ notifications:
       directMinThreshold: 10
       # Do not announce items older than this many hours (0 = no limit).
       maxItemAgeHours: 24
+    player:
+      # Announce when a player's total received Likes reaches exactly one of these values (2 or more).
+      thresholds: [10, 50, 100, 500]
 
 chat:
   enabled: true

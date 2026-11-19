@@ -5,6 +5,7 @@ import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 import dev.biga.likebeacon.model.FeedItem;
 import dev.biga.likebeacon.service.milestone.BroadcastRateLimiter;
@@ -55,14 +56,38 @@ public final class MilestoneNotifier {
 
         Component authorDisplay = text(playerNameResolver.resolve(authorUuid));
         Component initiatorDisplay = text(nameOrResolve(initiatorName, item.initiatorUuid()));
-        Audience others = Audience.audience(
+        everyoneExcept(authorUuid).sendMessage(messageFactory.buildItemMilestoneMessage(
+                item, initiatorDisplay, authorDisplay, milestone));
+    }
+
+    /**
+     * Congratulates a player whose received count reached a milestone and, when
+     * allowed by the server-wide interval, announces it to everyone else.
+     */
+    public void notifyPlayerMilestone(UUID playerUuid, long milestone) {
+        Player player = Bukkit.getPlayer(playerUuid);
+        if (player != null) {
+            player.sendMessage(messageFactory.notification(player.locale(),
+                    "likebeacon.milestone.player.received", text(Long.toString(milestone))));
+        }
+
+        if (!rateLimiter.tryAcquire()) {
+            log.fine(() -> "Skipping milestone announcement within minimum interval for player "
+                    + playerUuid);
+            return;
+        }
+
+        everyoneExcept(playerUuid).sendMessage(messageFactory.buildPlayerMilestoneMessage(
+                text(playerNameResolver.resolve(playerUuid)), milestone));
+    }
+
+    private static Audience everyoneExcept(UUID excludedUuid) {
+        return Audience.audience(
                 Stream.concat(
                         Bukkit.getOnlinePlayers().stream()
-                                .filter(player -> !player.getUniqueId().equals(authorUuid)),
+                                .filter(player -> !player.getUniqueId().equals(excludedUuid)),
                         Stream.of(Bukkit.getConsoleSender()))
                         .toList());
-        others.sendMessage(messageFactory.buildItemMilestoneMessage(
-                item, initiatorDisplay, authorDisplay, milestone));
     }
 
     private String nameOrResolve(String name, UUID uuid) {

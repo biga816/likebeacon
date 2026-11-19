@@ -16,7 +16,7 @@ LikeBeacon is a Minecraft Paper plugin for sharing appreciation in your communit
 - **React again from the feed** — open `/like feed` and click a heart on any direct Like or liked chat message.
 - **Celebrate the community** — browse rankings with `/like ranking` and personal activity with `/like mine`.
 
-The first Like on a chat message adds it to the shared feed. Messages nobody Likes are never stored. Successful Likes provide immediate feedback, notify the recipient, and can play heart and firework particles.
+The first Like on a chat message adds it to the shared feed. Messages nobody Likes are never stored. Successful Likes provide immediate feedback, notify the recipient, and can play heart and firework particles. Popular items and players are announced to the whole server; see [Notifications](#notifications) for who receives what.
 
 ## Book UI
 
@@ -132,11 +132,12 @@ The daily limit can be bypassed with `likebeacon.limit.bypass`. Pair cooldowns r
 
 | Key | Default | Purpose |
 | --- | --- | --- |
-| `notifications.milestones.enabled` | `true` | Announce feed items that reach a Like milestone to everyone except the author |
+| `notifications.milestones.enabled` | `true` | Announce Like milestones for feed items and players |
 | `notifications.milestones.minIntervalSeconds` | `30` | Minimum seconds between milestone announcements; announcements inside the interval are skipped |
 | `notifications.milestones.item.thresholds` | `[3, 10, 30]` | Like counts that trigger an announcement when an item reaches exactly that value |
 | `notifications.milestones.item.directMinThreshold` | `10` | Skip thresholds below this value for direct Likes, which are already announced when sent |
 | `notifications.milestones.item.maxItemAgeHours` | `24` | Do not announce items older than this many hours; `0` removes the limit |
+| `notifications.milestones.player.thresholds` | `[10, 50, 100, 500]` | Total received Likes that trigger an announcement when a player reaches exactly that value |
 
 Thresholds must be whole numbers of 2 or more; invalid values are ignored with a warning in the server log. A direct Like's count includes the sender's initial Like, matching the `[♡N]` count shown in the feed.
 
@@ -178,9 +179,20 @@ Players can then enter `/like #<code>` instead. `/like log` always shows codes, 
 
 ### Notifications
 
-Direct Likes are announced to online players other than the sender and recipient. Chat Likes and later reactions are private to the reacting player and recipient until the item reaches a milestone, when everyone except the author sees an announcement with a clickable `[♡N]` control. Milestone announcements follow the recipient's notification for the same reactions.
+Every Like is confirmed to the player who sent it and delivered to its recipient. Other players hear about Likes only when a direct Like is sent or when an item or player reaches a milestone, so chat stays readable. The table shows who receives what for each event.
 
-The first Like on a chat message is delivered immediately. Later reactions to an existing item can be aggregated, while each reacting player still receives immediate confirmation. For a direct Like from A to B, B remains the recipient of any later reactions.
+| Event | Player who Liked | Recipient | Everyone else |
+| --- | --- | --- | --- |
+| Direct Like sent | Confirmation | Notification | Announcement with `[♡]` |
+| First Like on a chat message | Confirmation | Notification | — |
+| Like on an existing feed item | Confirmation | Notification (can be grouped) | — |
+| Item reaches a Like milestone | Announcement with `[♡N]` | — | Announcement with `[♡N]` |
+| Player reaches a received-Like milestone | Announcement | Congratulation | Announcement |
+
+- **Grouping** — Likes on the same item that arrive close together are sent to the recipient as one notification. The player who Liked is always confirmed immediately. See [Presentation and notifications](#presentation-and-notifications).
+- **Order** — Milestone announcements are sent after the recipient's notification for the same Likes.
+- **Rate limit** — Milestone announcements are spaced by a minimum interval. Skipped announcements are not sent later, but the recipient's congratulation still is. See [Milestone announcements](#milestone-announcements).
+- **Direct Like reactions** — For a direct Like from A to B, B is the recipient of later reactions; A is not notified.
 
 ### Statistics
 

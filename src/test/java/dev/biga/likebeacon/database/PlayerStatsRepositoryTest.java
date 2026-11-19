@@ -49,9 +49,18 @@ class PlayerStatsRepositoryTest {
         assertEquals(4L, stats.updatedAt());
     }
 
-    private void increment(PlayerStatType type, UUID playerUuid, String playerName, long updatedAt)
+    @Test
+    void returnsSelectedStatisticAfterIncrement() throws Exception {
+        UUID playerUuid = UUID.randomUUID();
+
+        assertEquals(1L, increment(PlayerStatType.RECEIVED, playerUuid, "player", 1L));
+        assertEquals(1L, increment(PlayerStatType.SENT, playerUuid, "player", 2L));
+        assertEquals(2L, increment(PlayerStatType.RECEIVED, playerUuid, "player", 3L));
+    }
+
+    private long increment(PlayerStatType type, UUID playerUuid, String playerName, long updatedAt)
             throws Exception {
-        databaseManager.executeInTransaction(connection -> repository.incrementCount(
+        return databaseManager.executeInTransactionWithResult(connection -> repository.incrementCount(
                 connection, type, "test", playerUuid, playerName, updatedAt));
     }
 }

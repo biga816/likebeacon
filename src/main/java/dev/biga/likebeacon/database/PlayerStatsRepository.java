@@ -36,8 +36,12 @@ public class PlayerStatsRepository {
 
     // ── Write methods (transactional, called from DatabaseWriteExecutor) ────────
 
-    /** Increments one enum-limited statistic, creating the player row if needed. */
-    public void incrementCount(Connection conn, PlayerStatType type, String serverId,
+    /**
+     * Increments one enum-limited statistic, creating the player row if needed.
+     *
+     * @return the statistic's value after this increment
+     */
+    public long incrementCount(Connection conn, PlayerStatType type, String serverId,
             UUID playerUuid, String playerName, long updatedAt) throws SQLException {
         String column = type.column();
         String sql = """
@@ -48,7 +52,8 @@ public class PlayerStatsRepository {
                     %s          = %s + 1,
                     player_name = excluded.player_name,
                     updated_at  = excluded.updated_at
-                """.formatted(column, column);
+                RETURNING %s
+                """.formatted(column, column, column);
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, serverId);
             ps.setString(2, playerUuid.toString());
@@ -57,7 +62,12 @@ public class PlayerStatsRepository {
             ps.setInt(5, type.initialSent());
             ps.setInt(6, type.initialReacted());
             ps.setLong(7, updatedAt);
-            ps.executeUpdate();
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("Incrementing player stats returned no count for " + playerUuid);
+                }
+                return rs.getLong(1);
+            }
         }
     }
 
